@@ -253,9 +253,12 @@ function decodeJwt() {
         return;
     }
 
-    const token = input.replace(/^Bearer\s+/i, '').trim();
+    const token = input
+        .replace(/^Bearer\s+/i, '')
+        .replace(/\s+/g, '')
+        .trim();
     const parts = token.split('.');
-    if (parts.length < 2) {
+    if (parts.length < 2 || !parts[0] || !parts[1]) {
         showSimpleError('Invalid JWT format. Expected header.payload.signature');
         return;
     }
