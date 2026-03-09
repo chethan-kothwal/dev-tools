@@ -1,4 +1,4 @@
-# Test examples for Data Pro utilities
+# Test examples for Dev Tools utilities
 
 Copy and paste these into the app to test each tool.
 
@@ -8,7 +8,7 @@ Copy and paste these into the app to test each tool.
 
 **Minified / messy JSON (Format):**
 ```json
-{"name":"Data Pro","version":1,"features":["json","yaml","jwt"],"active":true,"meta":null}
+{"name":"Dev Tools","version":1,"features":["json","yaml","jwt"],"active":true,"meta":null}
 ```
 
 **Invalid JSON (Auto Fix):**
@@ -27,7 +27,7 @@ Copy and paste these into the app to test each tool.
 
 **Simple YAML:**
 ```yaml
-name: Data Pro
+name: Dev Tools
 version: 1.0
 features:
   - json
