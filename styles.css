@@ -459,6 +459,19 @@ body.sidebar-hidden .sidebar-content {
     border-right: 1px solid var(--border);
 }
 
+.line-number {
+    display: block;
+}
+
+.line-number-error {
+    background: #ffcf66;
+    color: #1f2937;
+    border-right: 4px solid #ff7a00;
+    font-weight: 700;
+    padding-right: 6px;
+    border-radius: 3px 0 0 3px;
+}
+
 textarea {
     flex: 1;
     background: transparent;
@@ -470,6 +483,35 @@ textarea {
     line-height: 1.5;
     resize: none;
     outline: none;
+}
+
+.panel-has-input-error .editor-wrapper {
+    box-shadow: inset 0 0 0 3px #ff7a00;
+}
+
+.input-error-inline {
+    display: none;
+    padding: 8px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    color: #5b1f00;
+    background: #ffd79a;
+    border-top: 2px solid #ff7a00;
+}
+
+.input-error-inline.show {
+    display: block;
+}
+
+.panel-has-input-error textarea::selection {
+    background: #ff7a00;
+    color: #111111;
+}
+
+.panel-has-input-error textarea::-moz-selection {
+    background: #ff7a00;
+    color: #111111;
 }
 
 .output-area {

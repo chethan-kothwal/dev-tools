@@ -4,6 +4,7 @@ const outputContent = document.getElementById('outputContent');
 const errorMessage = document.getElementById('errorMessage');
 const errorText = document.getElementById('errorText');
 const errorLocation = document.getElementById('errorLocation');
+const inputErrorInline = document.getElementById('inputErrorInline');
 const appTitle = document.getElementById('appTitle');
 const appSubtitle = document.getElementById('appSubtitle');
 const toolPicker = document.getElementById('toolPicker');
@@ -24,6 +25,7 @@ const THEME_STORAGE_KEY = 'selected_ui_theme';
 const SIDEBAR_STORAGE_KEY = 'sidebar_visible';
 let currentTool = 'json';
 let currentTheme = 'light';
+let inputErrorState = null;
 const toolButtons = {
     json: jsonToolBtn,
     yaml: yamlToolBtn,
@@ -81,15 +83,21 @@ const TOOL_CONFIG = {
 };
 
 if (inputJson) {
-    inputJson.addEventListener('input', updateLineNumbers);
+    inputJson.addEventListener('input', handleInputChange);
     inputJson.addEventListener('scroll', syncScroll);
+}
+
+function handleInputChange() {
+    clearInputErrorMarker();
+    errorMessage.classList.remove('show');
 }
 
 function updateLineNumbers() {
     const lines = inputJson.value.split('\n').length;
     let html = '';
     for (let i = 1; i <= lines; i++) {
-        html += i + '<br>';
+        const isErrorLine = inputErrorState && inputErrorState.line === i;
+        html += `<span class="line-number ${isErrorLine ? 'line-number-error' : ''}">${i}</span>`;
     }
     inputLineNumbers.innerHTML = html;
 }
@@ -253,47 +261,49 @@ function decodeJwt() {
         return;
     }
 
-    const token = input
-        .replace(/^Bearer\s+/i, '')
-        .replace(/\s+/g, '')
-        .trim();
-    const parts = token.split('.');
-    if (parts.length < 2 || !parts[0] || !parts[1]) {
-        showSimpleError('Invalid JWT format. Expected header.payload.signature');
-        return;
-    }
-
     try {
-        const header = JSON.parse(base64UrlDecode(parts[0]));
-        const payload = JSON.parse(base64UrlDecode(parts[1]));
-        const nowSec = Math.floor(Date.now() / 1000);
-        const exp = typeof payload.exp === 'number' ? payload.exp : null;
-        const nbf = typeof payload.nbf === 'number' ? payload.nbf : null;
-
-        const output = {
-            header,
-            payload,
-            tokenInfo: {
-                algorithm: header.alg || null,
-                type: header.typ || null,
-                signaturePresent: parts.length > 2 && parts[2].length > 0
-            },
-            timing: {
-                nowUnix: nowSec,
-                nowIso: new Date(nowSec * 1000).toISOString(),
-                issuedAt: payload.iat ? new Date(payload.iat * 1000).toISOString() : null,
-                notBefore: nbf ? new Date(nbf * 1000).toISOString() : null,
-                expiresAt: exp ? new Date(exp * 1000).toISOString() : null,
-                isExpired: exp ? nowSec >= exp : null,
-                secondsUntilExpiry: exp ? exp - nowSec : null
-            }
-        };
-
+        const output = decodeJwtToken(input);
         displayOutput(JSON.stringify(output, null, 2));
         errorMessage.classList.remove('show');
     } catch (e) {
         showSimpleError('Could not decode JWT: ' + e.message);
     }
+}
+
+function decodeJwtToken(input, nowSec = Math.floor(Date.now() / 1000)) {
+    const token = String(input || '')
+        .replace(/^Bearer\s+/i, '')
+        .replace(/\s+/g, '')
+        .trim();
+
+    const parts = token.split('.');
+    if (parts.length < 2 || !parts[0] || !parts[1]) {
+        throw new Error('Invalid JWT format. Expected header.payload.signature');
+    }
+
+    const header = JSON.parse(base64UrlDecode(parts[0]));
+    const payload = JSON.parse(base64UrlDecode(parts[1]));
+    const exp = typeof payload.exp === 'number' ? payload.exp : null;
+    const nbf = typeof payload.nbf === 'number' ? payload.nbf : null;
+
+    return {
+        header,
+        payload,
+        tokenInfo: {
+            algorithm: header.alg || null,
+            type: header.typ || null,
+            signaturePresent: parts.length > 2 && parts[2].length > 0
+        },
+        timing: {
+            nowUnix: nowSec,
+            nowIso: new Date(nowSec * 1000).toISOString(),
+            issuedAt: payload.iat ? new Date(payload.iat * 1000).toISOString() : null,
+            notBefore: nbf ? new Date(nbf * 1000).toISOString() : null,
+            expiresAt: exp ? new Date(exp * 1000).toISOString() : null,
+            isExpired: exp ? nowSec >= exp : null,
+            secondsUntilExpiry: exp ? exp - nowSec : null
+        }
+    };
 }
 
 function analyzeCron() {
@@ -494,31 +504,98 @@ function parseJsonError(message, input) {
     }
 
     let cleanMessage = message.replace(/^JSON\.parse: /, '');
-    cleanMessage = cleanMessage.replace(/at line \d+ column \d+/, '');
+    cleanMessage = cleanMessage.replace(/\s*at position \d+.*$/i, '').trim();
+    cleanMessage = cleanMessage.replace(/at line \d+ column \d+/i, '').trim();
+    if (!cleanMessage) {
+        cleanMessage = message;
+    }
     return { message: cleanMessage, line, column };
 }
 
 function showSimpleError(message) {
+    clearInputErrorMarker();
     errorText.textContent = message;
     errorLocation.textContent = '';
     errorMessage.classList.add('show');
 }
 
-function showError(message, line, column) {
+function showError(message, line, column, details = '') {
     errorText.textContent = message;
     errorLocation.textContent = `Line ${line}, Column ${column}`;
     errorMessage.classList.add('show');
+    setInputErrorMarker(line, column, details);
+}
 
-    const lines = inputJson.value.split('\n');
-    let html = '';
-    for (let i = 1; i <= lines.length; i++) {
-        const isError = i === line;
-        html += `<div class="output-line ${isError ? 'error-line' : ''}">`;
-        html += `<div class="output-line-numbers">${i}</div>`;
-        html += `<div class="output-content">${highlightLine(lines[i - 1] || '')}</div>`;
-        html += `</div>`;
+function setInputErrorMarker(line, column, details = '') {
+    if (!Number.isInteger(line) || line < 1) {
+        clearInputErrorMarker();
+        return;
     }
-    outputContent.innerHTML = html;
+    inputErrorState = { line, column: Number.isInteger(column) ? column : 1 };
+    document.getElementById('leftPanel')?.classList.add('panel-has-input-error');
+    updateLineNumbers();
+    if (inputErrorInline) {
+        const base = `Input error at line ${inputErrorState.line}, column ${inputErrorState.column}`;
+        inputErrorInline.textContent = details ? `${base}\n${details}` : base;
+        inputErrorInline.classList.add('show');
+    }
+    highlightInputErrorPosition(inputErrorState.line, inputErrorState.column);
+}
+
+function buildJsonErrorDetails(input, errorInfo) {
+    const lines = input.split('\n');
+    const lineText = lines[errorInfo.line - 1] || '';
+    const colIndex = Math.max(0, (errorInfo.column || 1) - 1);
+    const start = Math.max(0, colIndex - 28);
+    const end = Math.min(lineText.length, colIndex + 28);
+    const excerpt = lineText.slice(start, end);
+    const pointer = `${' '.repeat(Math.max(0, colIndex - start))}^`;
+
+    let hint = 'Check for a missing comma, colon, quote, or bracket near the pointer.';
+    if (/expected ':' after property name in json/i.test(errorInfo.message)) {
+        hint = 'Likely missing ":" between a JSON key and its value.';
+    } else if (/unexpected token/i.test(errorInfo.message)) {
+        hint = 'Unexpected character near the pointer. Check quoting and separators.';
+    } else if (/unterminated string/i.test(errorInfo.message)) {
+        hint = 'A string may be missing a closing quote.';
+    }
+
+    return `Hint: ${hint}\nNear: ${excerpt}\n      ${pointer}`;
+}
+
+function clearInputErrorMarker() {
+    inputErrorState = null;
+    document.getElementById('leftPanel')?.classList.remove('panel-has-input-error');
+    updateLineNumbers();
+    if (inputErrorInline) {
+        inputErrorInline.textContent = '';
+        inputErrorInline.classList.remove('show');
+    }
+}
+
+function lineColumnToIndex(text, line, column) {
+    const lines = text.split('\n');
+    const safeLine = Math.min(Math.max(1, line), lines.length);
+    const before = lines.slice(0, safeLine - 1).join('\n');
+    const lineStart = before.length + (safeLine > 1 ? 1 : 0);
+    const lineText = lines[safeLine - 1] || '';
+    const safeColumn = Math.min(Math.max(1, column), lineText.length + 1);
+    return lineStart + (safeColumn - 1);
+}
+
+function highlightInputErrorPosition(line, column) {
+    const text = inputJson.value;
+    if (!text) return;
+
+    const index = lineColumnToIndex(text, line, column);
+    const start = Math.max(0, index - 1);
+    const end = Math.min(text.length, index + 1);
+
+    // Bring the offending location into view and highlight nearby character(s).
+    const lineHeight = parseFloat(window.getComputedStyle(inputJson).lineHeight) || 21;
+    inputJson.scrollTop = Math.max(0, (line - 2) * lineHeight);
+    inputJson.focus();
+    inputJson.setSelectionRange(start, Math.max(start + 1, end));
 }
 
 function displayOutput(formatted) {
@@ -535,6 +612,7 @@ function displayOutput(formatted) {
 
 function clearAll() {
     inputJson.value = '';
+    clearInputErrorMarker();
     updateLineNumbers();
     outputContent.innerHTML = '';
     errorMessage.classList.remove('show');
@@ -558,6 +636,14 @@ function autoFixJson() {
     if (!input.trim()) {
         showSimpleError('Please enter some JSON');
         return;
+    }
+
+    let inputErrorInfo = null;
+    try {
+        JSON.parse(input);
+        clearInputErrorMarker();
+    } catch (e) {
+        inputErrorInfo = parseJsonError(e.message, input);
     }
 
     let fixed = normalizeJsonInput(input);
@@ -592,10 +678,14 @@ function autoFixJson() {
         fixed = JSON.stringify(parsed, null, 2);
     }
 
-    inputJson.value = fixed;
-    updateLineNumbers();
     displayOutput(fixed);
-    errorMessage.classList.remove('show');
+    if (inputErrorInfo) {
+        const details = buildJsonErrorDetails(input, inputErrorInfo);
+        showError(`Auto-fix generated output. Original input issue: ${inputErrorInfo.message}`, inputErrorInfo.line, inputErrorInfo.column, details);
+    } else {
+        clearInputErrorMarker();
+        errorMessage.classList.remove('show');
+    }
 }
 
 function autoFixYaml() {
@@ -608,6 +698,19 @@ function autoFixYaml() {
     if (!input.trim()) {
         showSimpleError('Please enter some YAML');
         return;
+    }
+
+    let inputErrorInfo = null;
+    try {
+        jsyaml.load(input);
+        clearInputErrorMarker();
+    } catch (e) {
+        const mark = e && e.mark ? e.mark : { line: 0, column: 0 };
+        inputErrorInfo = {
+            message: e.reason || e.message || 'Invalid YAML',
+            line: mark.line + 1,
+            column: mark.column + 1
+        };
     }
 
     let fixed = input;
@@ -662,18 +765,24 @@ function autoFixYaml() {
         }
 
         const formatted = jsyaml.dump(parsed, { indent: 2, lineWidth: -1, noRefs: true }).trimEnd();
-        inputJson.value = fixed;
-        updateLineNumbers();
         displayOutput(formatted);
-        errorMessage.classList.remove('show');
+        if (inputErrorInfo) {
+            showError(`Input error retained: ${inputErrorInfo.message}`, inputErrorInfo.line, inputErrorInfo.column);
+        } else {
+            clearInputErrorMarker();
+            errorMessage.classList.remove('show');
+        }
     } catch (e) {
         try {
             const looseParsed = parseLooseYamlToObject(fixed);
             const formatted = jsyaml.dump(looseParsed, { indent: 2, lineWidth: -1, noRefs: true }).trimEnd();
-            inputJson.value = formatted;
-            updateLineNumbers();
             displayOutput(formatted);
-            errorMessage.classList.remove('show');
+            if (inputErrorInfo) {
+                showError(`Input error retained: ${inputErrorInfo.message}`, inputErrorInfo.line, inputErrorInfo.column);
+            } else {
+                clearInputErrorMarker();
+                errorMessage.classList.remove('show');
+            }
         } catch (fallbackError) {
             const mark = fallbackError && fallbackError.mark ? fallbackError.mark : (e && e.mark ? e.mark : { line: 0, column: 0 });
             showError('Could not auto-fix YAML: ' + ((fallbackError && (fallbackError.reason || fallbackError.message)) || e.reason || e.message), mark.line + 1, mark.column + 1);
@@ -1505,3 +1614,39 @@ document.addEventListener('touchend', () => {
         resizer.classList.remove('resizing');
     }
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        parseJsonError,
+        normalizeJsonInput,
+        fixJsonControlCharsInStrings,
+        runJsonRepairPasses,
+        parseLooseJsonFallback,
+        fixJsonStep,
+        fixTrailingCommas,
+        fixMissingCommas,
+        fixInlineValueBeforeNextKey,
+        fixUnquotedKeys,
+        fixSingleQuotes,
+        fixJavascriptComments,
+        fixUnquotedValues,
+        parseLooseYamlToObject,
+        fixYamlTabs,
+        fixYamlListSpacing,
+        fixYamlColonSpacing,
+        fixYamlMissingColons,
+        fixYamlTrailingCommas,
+        fixYamlUnsafeValues,
+        fixYamlIndentation,
+        fixYamlIndentByError,
+        base64UrlDecode,
+        decodeJwtToken,
+        parseCronField,
+        parseCronExpression,
+        cronMatches,
+        getNextCronRuns,
+        buildTimestampConversions,
+        lineColumnToIndex,
+        buildJsonErrorDetails
+    };
+}

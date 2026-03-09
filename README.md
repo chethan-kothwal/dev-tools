@@ -2,6 +2,20 @@
 
 This project is a static site served by `nginx` in Docker.
 
+## How to run tests
+
+Prerequisite: Node.js 18+ and npm.
+
+```bash
+cd /Users/chethan/Desktop/projects/dev-tools
+npm install
+npm test
+```
+
+Expected result:
+- Node test runner executes `test/tools.test.js`
+- You should see passing output like `pass 42, fail 0`
+
 ## 1. Build locally
 
 ```bash
@@ -37,25 +51,4 @@ docker run -d \
   --restart unless-stopped \
   -p 80:80 \
   tools-website:latest
-```
-
-## 4. Optional: Deploy via ECR
-
-```bash
-aws ecr get-login-password --region <AWS_REGION> | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com
-docker tag tools-website:latest <ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/tools-website:latest
-docker push <ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/tools-website:latest
-```
-
-Then pull and run on EC2:
-
-```bash
-docker pull <ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/tools-website:latest
-docker stop tools-website || true
-docker rm tools-website || true
-docker run -d \
-  --name tools-website \
-  --restart unless-stopped \
-  -p 80:80 \
-  <ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/tools-website:latest
 ```
