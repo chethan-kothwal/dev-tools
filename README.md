@@ -1,6 +1,6 @@
 # Dev Tools
 
-Static web app with JSON/YAML formatters and utility tools (JWT decoder, cron parser, timestamp converter).
+Static web app with JSON/YAML formatters and utility tools (JWT decoder, cron parser, timestamp converter, Base64/Hex utilities).
 
 ## Tools available
 
@@ -25,6 +25,11 @@ Static web app with JSON/YAML formatters and utility tools (JWT decoder, cron pa
 - Unix Timestamp Converter
   - Converts Unix seconds/milliseconds and date-time strings.
   - Returns UTC/local representations and normalized timestamp values.
+
+- Base64/Hex Utilities
+  - Encodes/decodes text using Base64 and Hex.
+  - Encodes files to Base64/Hex and decodes Base64/Hex back to downloadable binary files.
+  - Decodes JWT header/payload parts and encodes JWT parts as Base64URL.
 
 ## Run locally
 

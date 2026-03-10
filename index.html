@@ -43,6 +43,10 @@
                     <strong>Unix Timestamp Converter</strong>
                     <span>Convert Unix/ISO/local date values in both directions.</span>
                 </button>
+                <button class="tool-choice" data-tool="base64hex">
+                    <strong>Base64/Hex Utilities</strong>
+                    <span>Encode/decode text, files, and JWT header/payload parts.</span>
+                </button>
             </div>
         </div>
     </div>
@@ -66,6 +70,7 @@
                     <button class="sidebar-tool" id="jwtToolBtn" type="button">JWT Token Decoder</button>
                     <button class="sidebar-tool" id="cronToolBtn" type="button">Cron Schedule Parser</button>
                     <button class="sidebar-tool" id="timestampToolBtn" type="button">Unix Timestamp Converter</button>
+                    <button class="sidebar-tool" id="base64HexToolBtn" type="button">Base64/Hex Utilities</button>
                 </div>
             </div>
         </aside>
@@ -88,6 +93,35 @@
                             <button class="btn btn-secondary" id="autoFixBtn" type="button">Auto Fix</button>
                             <button class="btn btn-primary" id="primaryActionBtn" type="button">Format</button>
                         </div>
+                    </div>
+                    <div class="utility-controls" id="utilityControls">
+                        <label class="utility-control">
+                            <span>Mode</span>
+                            <select id="utilModeSelect">
+                                <optgroup label="Text">
+                                    <option value="base64-encode-text">Base64 Encode Text</option>
+                                    <option value="base64-decode-text">Base64 Decode Text</option>
+                                    <option value="hex-encode-text">Hex Encode Text</option>
+                                    <option value="hex-decode-text">Hex Decode Text</option>
+                                </optgroup>
+                                <optgroup label="File">
+                                    <option value="base64-encode-file">Base64 Encode File</option>
+                                    <option value="base64-decode-file">Base64 Decode To File</option>
+                                    <option value="hex-encode-file">Hex Encode File</option>
+                                    <option value="hex-decode-file">Hex Decode To File</option>
+                                </optgroup>
+                                <optgroup label="JWT Parts">
+                                    <option value="jwt-decode-header">JWT Decode Header Part</option>
+                                    <option value="jwt-decode-payload">JWT Decode Payload Part</option>
+                                    <option value="jwt-encode-part">JWT Encode Part (Base64URL)</option>
+                                </optgroup>
+                            </select>
+                        </label>
+                        <button class="btn btn-secondary" id="utilPickFileBtn" type="button">Choose File</button>
+                        <button class="btn btn-secondary" id="utilClearFileBtn" type="button">Clear File</button>
+                        <span class="utility-file-name" id="utilFileName">No file selected</span>
+                        <button class="btn btn-secondary" id="utilDownloadBtn" type="button">Download File</button>
+                        <input id="utilFileInput" type="file" hidden />
                     </div>
                     <div class="editor-wrapper">
                         <div class="line-numbers" id="inputLineNumbers">1</div>

@@ -119,3 +119,39 @@ Feb 15, 2025
 ```
 15 February 2025 00:00:00 GMT
 ```
+
+---
+
+## 6. Base64/Hex Utilities
+
+Use the mode selector in this tool to choose the operation.
+
+**Base64 Encode Text mode input:**
+```
+Hello Dev Tools
+```
+
+**Base64 Decode Text mode input:**
+```
+SGVsbG8gRGV2IFRvb2xz
+```
+
+**Hex Encode Text mode input:**
+```
+hello
+```
+
+**Hex Decode Text mode input:**
+```
+68656c6c6f
+```
+
+**JWT Decode Header Part mode input (full token also works):**
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+```
+
+**JWT Encode Part mode input:**
+```json
+{"sub":"123","role":"admin"}
+```

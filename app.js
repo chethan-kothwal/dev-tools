@@ -13,12 +13,20 @@ const yamlToolBtn = document.getElementById('yamlToolBtn');
 const jwtToolBtn = document.getElementById('jwtToolBtn');
 const cronToolBtn = document.getElementById('cronToolBtn');
 const timestampToolBtn = document.getElementById('timestampToolBtn');
+const base64HexToolBtn = document.getElementById('base64HexToolBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
 const autoFixBtn = document.getElementById('autoFixBtn');
 const primaryActionBtn = document.getElementById('primaryActionBtn');
 const inputPanelTitle = document.getElementById('inputPanelTitle');
 const outputPanelTitle = document.getElementById('outputPanelTitle');
+const utilityControls = document.getElementById('utilityControls');
+const utilModeSelect = document.getElementById('utilModeSelect');
+const utilPickFileBtn = document.getElementById('utilPickFileBtn');
+const utilClearFileBtn = document.getElementById('utilClearFileBtn');
+const utilFileName = document.getElementById('utilFileName');
+const utilDownloadBtn = document.getElementById('utilDownloadBtn');
+const utilFileInput = document.getElementById('utilFileInput');
 
 const TOOL_STORAGE_KEY = 'selected_formatter_tool';
 const THEME_STORAGE_KEY = 'selected_ui_theme';
@@ -26,33 +34,40 @@ const SIDEBAR_STORAGE_KEY = 'sidebar_visible';
 let currentTool = 'json';
 let currentTheme = 'light';
 let inputErrorState = null;
+let utilityMode = 'base64-encode-text';
+let utilityFile = null;
+let utilityDecodedFile = null;
 const toolInputCache = {
     json: '',
     yaml: '',
     jwt: '',
     cron: '',
-    timestamp: ''
+    timestamp: '',
+    base64hex: ''
 };
 const toolOutputCache = {
     json: '',
     yaml: '',
     jwt: '',
     cron: '',
-    timestamp: ''
+    timestamp: '',
+    base64hex: ''
 };
 const toolErrorCache = {
     json: { show: false, text: '', location: '' },
     yaml: { show: false, text: '', location: '' },
     jwt: { show: false, text: '', location: '' },
     cron: { show: false, text: '', location: '' },
-    timestamp: { show: false, text: '', location: '' }
+    timestamp: { show: false, text: '', location: '' },
+    base64hex: { show: false, text: '', location: '' }
 };
 const toolButtons = {
     json: jsonToolBtn,
     yaml: yamlToolBtn,
     jwt: jwtToolBtn,
     cron: cronToolBtn,
-    timestamp: timestampToolBtn
+    timestamp: timestampToolBtn,
+    base64hex: base64HexToolBtn
 };
 
 const TOOL_CONFIG = {
@@ -100,12 +115,24 @@ const TOOL_CONFIG = {
         showAutoFix: false,
         inputTitle: 'Time Input',
         outputTitle: 'Conversion Output'
+    },
+    base64hex: {
+        title: 'Base64/Hex Utilities',
+        subtitle: 'Encode/decode text, files, and JWT header/payload parts.',
+        placeholder: 'Enter text, Base64, Hex, or JWT token/part based on selected mode...',
+        actionLabel: 'Run',
+        showAutoFix: false,
+        inputTitle: 'Utility Input',
+        outputTitle: 'Utility Output'
     }
 };
 
 if (inputJson) {
     inputJson.addEventListener('input', handleInputChange);
     inputJson.addEventListener('scroll', syncScroll);
+}
+if (utilModeSelect && !utilModeSelect.value) {
+    utilModeSelect.value = utilityMode;
 }
 
 function handleInputChange() {
@@ -201,6 +228,59 @@ function getToolConfig(tool) {
     return TOOL_CONFIG[tool] || TOOL_CONFIG.json;
 }
 
+function updateUtilityFileLabel() {
+    if (!utilFileName) return;
+    utilFileName.textContent = utilityFile ? `${utilityFile.name} (${utilityFile.bytes.length} bytes)` : 'No file selected';
+}
+
+function updateUtilityDownloadState() {
+    if (!utilDownloadBtn) return;
+    utilDownloadBtn.style.display = utilityDecodedFile ? 'inline-flex' : 'none';
+}
+
+function updateUtilityPlaceholder() {
+    if (currentTool !== 'base64hex') return;
+    const placeholders = {
+        'base64-encode-text': 'Enter plain text to encode as Base64...',
+        'base64-decode-text': 'Enter Base64 text to decode...',
+        'hex-encode-text': 'Enter plain text to encode as hex...',
+        'hex-decode-text': 'Enter hex string to decode as text...',
+        'base64-encode-file': 'Select a file, then click Run to convert file bytes to Base64...',
+        'base64-decode-file': 'Paste Base64 content to decode into a file, then click Download File...',
+        'hex-encode-file': 'Select a file, then click Run to convert file bytes to hex...',
+        'hex-decode-file': 'Paste hex content to decode into a file, then click Download File...',
+        'jwt-decode-header': 'Paste a full JWT token or just a JWT header part...',
+        'jwt-decode-payload': 'Paste a full JWT token or just a JWT payload part...',
+        'jwt-encode-part': 'Paste JSON/text for a JWT part and encode as Base64URL...'
+    };
+    inputJson.placeholder = placeholders[utilityMode] || TOOL_CONFIG.base64hex.placeholder;
+}
+
+function updateUtilityControlsVisibility() {
+    const isUtility = currentTool === 'base64hex';
+    if (utilityControls) {
+        utilityControls.classList.toggle('show', isUtility);
+    }
+    if (utilPickFileBtn) {
+        const fileMode = utilityMode.includes('-file');
+        utilPickFileBtn.style.display = isUtility && fileMode && utilityMode.includes('encode') ? 'inline-flex' : 'none';
+    }
+    if (utilClearFileBtn) {
+        const fileMode = utilityMode.includes('-file');
+        utilClearFileBtn.style.display = isUtility && fileMode && utilityMode.includes('encode') ? 'inline-flex' : 'none';
+    }
+    if (utilFileName) {
+        const fileMode = utilityMode.includes('-file');
+        utilFileName.style.display = isUtility && fileMode && utilityMode.includes('encode') ? 'inline' : 'none';
+    }
+    if (!isUtility) {
+        utilityDecodedFile = null;
+    }
+    updateUtilityDownloadState();
+    updateUtilityFileLabel();
+    updateUtilityPlaceholder();
+}
+
 function cacheCurrentToolState() {
     if (!TOOL_CONFIG[currentTool]) return;
     toolInputCache[currentTool] = inputJson.value;
@@ -244,6 +324,7 @@ function setTool(tool, persist = true) {
     autoFixBtn.style.display = config.showAutoFix ? 'inline-flex' : 'none';
     inputPanelTitle.textContent = config.inputTitle;
     outputPanelTitle.textContent = config.outputTitle;
+    updateUtilityControlsVisibility();
 
     Object.keys(toolButtons).forEach((key) => {
         toolButtons[key].classList.toggle('active', key === currentTool);
@@ -317,6 +398,7 @@ function formatCurrent() {
     if (currentTool === 'jwt') return decodeJwt();
     if (currentTool === 'cron') return analyzeCron();
     if (currentTool === 'timestamp') return convertTimestamp();
+    if (currentTool === 'base64hex') return runBase64HexUtility();
     return formatJson();
 }
 
@@ -457,6 +539,283 @@ function convertTimestamp() {
     } catch (e) {
         showSimpleError('Could not convert timestamp: ' + e.message);
     }
+}
+
+function utf8ToBytes(text) {
+    if (typeof TextEncoder !== 'undefined') {
+        return new TextEncoder().encode(text);
+    }
+    const encoded = unescape(encodeURIComponent(text));
+    const out = new Uint8Array(encoded.length);
+    for (let i = 0; i < encoded.length; i++) out[i] = encoded.charCodeAt(i);
+    return out;
+}
+
+function bytesToUtf8(bytes) {
+    if (typeof TextDecoder !== 'undefined') {
+        return new TextDecoder().decode(bytes);
+    }
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    try {
+        return decodeURIComponent(escape(binary));
+    } catch (e) {
+        return binary;
+    }
+}
+
+function bytesToBase64(bytes) {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+    }
+    if (typeof btoa === 'function') {
+        return btoa(binary);
+    }
+    if (typeof Buffer !== 'undefined') {
+        return Buffer.from(binary, 'binary').toString('base64');
+    }
+    throw new Error('Base64 encode is not supported in this environment');
+}
+
+function normalizeBase64Input(input) {
+    const trimmed = String(input || '').replace(/\s+/g, '');
+    if (!trimmed) throw new Error('Base64 input is empty');
+    const normalized = trimmed.replace(/-/g, '+').replace(/_/g, '/');
+    const remainder = normalized.length % 4;
+    if (remainder === 1) {
+        throw new Error('Invalid Base64 length');
+    }
+    return normalized + '='.repeat((4 - remainder) % 4);
+}
+
+function base64ToBytes(input) {
+    const padded = normalizeBase64Input(input);
+    const binary = typeof atob === 'function'
+        ? atob(padded)
+        : (typeof Buffer !== 'undefined' ? Buffer.from(padded, 'base64').toString('binary') : '');
+    if (binary === '') {
+        throw new Error('Base64 decode is not supported in this environment');
+    }
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
+}
+
+function bytesToHex(bytes) {
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToBytes(input) {
+    const cleaned = String(input || '').replace(/\s+/g, '').replace(/^0x/i, '');
+    if (!cleaned) throw new Error('Hex input is empty');
+    if (!/^[0-9a-fA-F]+$/.test(cleaned)) {
+        throw new Error('Hex input contains non-hex characters');
+    }
+    if (cleaned.length % 2 !== 0) {
+        throw new Error('Hex input must have an even number of characters');
+    }
+    const out = new Uint8Array(cleaned.length / 2);
+    for (let i = 0; i < cleaned.length; i += 2) {
+        out[i / 2] = parseInt(cleaned.slice(i, i + 2), 16);
+    }
+    return out;
+}
+
+function base64UrlEncode(text) {
+    return bytesToBase64(utf8ToBytes(text)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function extractJwtPart(rawInput, mode) {
+    const token = String(rawInput || '').replace(/^Bearer\s+/i, '').trim();
+    if (!token) throw new Error('JWT input is empty');
+    const parts = token.split('.');
+    if (parts.length >= 2) {
+        const part = mode === 'jwt-decode-header' ? parts[0] : parts[1];
+        if (!part) throw new Error('Requested JWT part is empty');
+        return part;
+    }
+    return token;
+}
+
+function clearToolError() {
+    errorMessage.classList.remove('show');
+    toolErrorCache[currentTool] = { show: false, text: '', location: '' };
+}
+
+function runBase64HexUtility() {
+    const rawInput = inputJson.value;
+    const trimmed = rawInput.trim();
+    utilityDecodedFile = null;
+
+    try {
+        if (utilityMode === 'base64-encode-text') {
+            if (!trimmed) throw new Error('Please enter text to encode');
+            displayOutput(bytesToBase64(utf8ToBytes(rawInput)));
+            clearToolError();
+            updateUtilityDownloadState();
+            return;
+        }
+
+        if (utilityMode === 'base64-decode-text') {
+            if (!trimmed) throw new Error('Please enter Base64 text to decode');
+            displayOutput(bytesToUtf8(base64ToBytes(trimmed)));
+            clearToolError();
+            updateUtilityDownloadState();
+            return;
+        }
+
+        if (utilityMode === 'hex-encode-text') {
+            if (!trimmed) throw new Error('Please enter text to encode');
+            displayOutput(bytesToHex(utf8ToBytes(rawInput)));
+            clearToolError();
+            updateUtilityDownloadState();
+            return;
+        }
+
+        if (utilityMode === 'hex-decode-text') {
+            if (!trimmed) throw new Error('Please enter hex text to decode');
+            displayOutput(bytesToUtf8(hexToBytes(trimmed)));
+            clearToolError();
+            updateUtilityDownloadState();
+            return;
+        }
+
+        if (utilityMode === 'base64-encode-file') {
+            if (!utilityFile) throw new Error('Choose a file first');
+            displayOutput(bytesToBase64(utilityFile.bytes));
+            clearToolError();
+            updateUtilityDownloadState();
+            return;
+        }
+
+        if (utilityMode === 'hex-encode-file') {
+            if (!utilityFile) throw new Error('Choose a file first');
+            displayOutput(bytesToHex(utilityFile.bytes));
+            clearToolError();
+            updateUtilityDownloadState();
+            return;
+        }
+
+        if (utilityMode === 'base64-decode-file') {
+            if (!trimmed) throw new Error('Please enter Base64 content to decode');
+            const bytes = base64ToBytes(trimmed);
+            utilityDecodedFile = {
+                name: 'decoded-base64.bin',
+                bytes,
+                type: 'application/octet-stream'
+            };
+            displayOutput(`Decoded ${bytes.length} bytes from Base64.\nClick "Download File" to save the result.`);
+            clearToolError();
+            updateUtilityDownloadState();
+            return;
+        }
+
+        if (utilityMode === 'hex-decode-file') {
+            if (!trimmed) throw new Error('Please enter hex content to decode');
+            const bytes = hexToBytes(trimmed);
+            utilityDecodedFile = {
+                name: 'decoded-hex.bin',
+                bytes,
+                type: 'application/octet-stream'
+            };
+            displayOutput(`Decoded ${bytes.length} bytes from hex.\nClick "Download File" to save the result.`);
+            clearToolError();
+            updateUtilityDownloadState();
+            return;
+        }
+
+        if (utilityMode === 'jwt-decode-header' || utilityMode === 'jwt-decode-payload') {
+            const part = extractJwtPart(trimmed, utilityMode);
+            const decoded = base64UrlDecode(part);
+            try {
+                const parsed = JSON.parse(decoded);
+                displayOutput(JSON.stringify(parsed, null, 2));
+            } catch (e) {
+                displayOutput(decoded);
+            }
+            clearToolError();
+            updateUtilityDownloadState();
+            return;
+        }
+
+        if (utilityMode === 'jwt-encode-part') {
+            if (!trimmed) throw new Error('Please enter JWT part content');
+            let normalized = rawInput;
+            try {
+                normalized = JSON.stringify(JSON.parse(rawInput));
+            } catch (e) {}
+            displayOutput(base64UrlEncode(normalized));
+            clearToolError();
+            updateUtilityDownloadState();
+            return;
+        }
+
+        throw new Error('Unsupported utility mode');
+    } catch (e) {
+        showSimpleError('Utility error: ' + e.message);
+        updateUtilityDownloadState();
+    }
+}
+
+function handleUtilityModeChange() {
+    utilityMode = utilModeSelect && utilModeSelect.value ? utilModeSelect.value : 'base64-encode-text';
+    utilityDecodedFile = null;
+    clearToolError();
+    updateUtilityControlsVisibility();
+}
+
+function clearUtilityFileSelection() {
+    utilityFile = null;
+    utilityDecodedFile = null;
+    if (utilFileInput) {
+        utilFileInput.value = '';
+    }
+    updateUtilityFileLabel();
+    updateUtilityDownloadState();
+}
+
+function handleUtilityFileSelect(event) {
+    const file = event && event.target && event.target.files ? event.target.files[0] : null;
+    if (!file) {
+        clearUtilityFileSelection();
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        const bytes = new Uint8Array(reader.result);
+        utilityFile = {
+            name: file.name,
+            type: file.type || 'application/octet-stream',
+            bytes
+        };
+        updateUtilityFileLabel();
+    };
+    reader.onerror = () => {
+        utilityFile = null;
+        updateUtilityFileLabel();
+        showSimpleError('Could not read the selected file');
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function downloadUtilityFile() {
+    if (!utilityDecodedFile) {
+        showSimpleError('No decoded file available. Run a decode-to-file mode first.');
+        return;
+    }
+    const blob = new Blob([utilityDecodedFile.bytes], { type: utilityDecodedFile.type || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = utilityDecodedFile.name || 'decoded.bin';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 function base64UrlDecode(value) {
@@ -725,6 +1084,11 @@ function clearAll() {
     toolInputCache[currentTool] = '';
     toolOutputCache[currentTool] = '';
     toolErrorCache[currentTool] = { show: false, text: '', location: '' };
+    if (currentTool === 'base64hex') {
+        utilityDecodedFile = null;
+        clearUtilityFileSelection();
+        updateUtilityDownloadState();
+    }
     clearInputErrorMarker();
     updateLineNumbers();
     outputContent.innerHTML = '';
@@ -1638,6 +2002,12 @@ if (yamlToolBtn) yamlToolBtn.addEventListener('click', () => setTool('yaml'));
 if (jwtToolBtn) jwtToolBtn.addEventListener('click', () => setTool('jwt'));
 if (cronToolBtn) cronToolBtn.addEventListener('click', () => setTool('cron'));
 if (timestampToolBtn) timestampToolBtn.addEventListener('click', () => setTool('timestamp'));
+if (base64HexToolBtn) base64HexToolBtn.addEventListener('click', () => setTool('base64hex'));
+if (utilModeSelect) utilModeSelect.addEventListener('change', handleUtilityModeChange);
+if (utilPickFileBtn && utilFileInput) utilPickFileBtn.addEventListener('click', () => utilFileInput.click());
+if (utilClearFileBtn) utilClearFileBtn.addEventListener('click', clearUtilityFileSelection);
+if (utilFileInput) utilFileInput.addEventListener('change', handleUtilityFileSelect);
+if (utilDownloadBtn) utilDownloadBtn.addEventListener('click', downloadUtilityFile);
 document.querySelector('#leftPanel .btn-group .btn-secondary')?.addEventListener('click', clearAll);
 document.querySelector('#rightPanel .panel-header .btn-secondary')?.addEventListener('click', copyOutput);
 document.querySelectorAll('.tool-choice').forEach((el) => {
@@ -1752,6 +2122,14 @@ if (typeof module !== 'undefined' && module.exports) {
         fixYamlUnsafeValues,
         fixYamlIndentation,
         fixYamlIndentByError,
+        utf8ToBytes,
+        bytesToUtf8,
+        bytesToBase64,
+        base64ToBytes,
+        bytesToHex,
+        hexToBytes,
+        base64UrlEncode,
+        extractJwtPart,
         base64UrlDecode,
         decodeJwtToken,
         parseCronField,

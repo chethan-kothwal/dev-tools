@@ -130,6 +130,37 @@ test('JWT: base64UrlDecode decodes url-safe payload', () => {
   assert.equal(api.base64UrlDecode(payload), '{"hello":"world"}');
 });
 
+test('Utility: base64 text roundtrip preserves utf-8 content', () => {
+  const input = 'hello π 世界';
+  const encoded = api.bytesToBase64(api.utf8ToBytes(input));
+  const decoded = api.bytesToUtf8(api.base64ToBytes(encoded));
+  assert.equal(decoded, input);
+});
+
+test('Utility: hex text roundtrip preserves utf-8 content', () => {
+  const input = 'chethan-dev-tools';
+  const encoded = api.bytesToHex(api.utf8ToBytes(input));
+  const decoded = api.bytesToUtf8(api.hexToBytes(encoded));
+  assert.equal(decoded, input);
+});
+
+test('Utility: base64UrlEncode matches url-safe alphabet and decode reverses', () => {
+  const input = '{"sub":"u1","scope":"read:all"}';
+  const encoded = api.base64UrlEncode(input);
+  assert.equal(/^[A-Za-z0-9_-]+$/.test(encoded), true);
+  assert.equal(api.base64UrlDecode(encoded), input);
+});
+
+test('Utility: extractJwtPart supports full token and raw part input', () => {
+  const token = buildJwt({ alg: 'HS256' }, { sub: 'u1' }, 'sig');
+  const headerPart = token.split('.')[0];
+  const payloadPart = token.split('.')[1];
+
+  assert.equal(api.extractJwtPart(token, 'jwt-decode-header'), headerPart);
+  assert.equal(api.extractJwtPart(token, 'jwt-decode-payload'), payloadPart);
+  assert.equal(api.extractJwtPart(payloadPart, 'jwt-decode-payload'), payloadPart);
+});
+
 test('JWT: decodeJwtToken decodes header and payload', () => {
   const now = 1700000000;
   const token = buildJwt({ alg: 'HS256', typ: 'JWT' }, { sub: 'u1', exp: now + 60 });
