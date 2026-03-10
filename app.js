@@ -27,16 +27,25 @@ const utilClearFileBtn = document.getElementById('utilClearFileBtn');
 const utilFileName = document.getElementById('utilFileName');
 const utilDownloadBtn = document.getElementById('utilDownloadBtn');
 const utilFileInput = document.getElementById('utilFileInput');
+const leftPanel = document.getElementById('leftPanel');
+const rightPanel = document.getElementById('rightPanel');
+const resizer = document.getElementById('resizer');
+const container = document.querySelector('.container');
+const clearBtn = document.querySelector('#leftPanel .btn-group .btn-secondary');
+const copyBtn = document.querySelector('#rightPanel .panel-header .btn-secondary');
 
 const TOOL_STORAGE_KEY = 'selected_formatter_tool';
 const THEME_STORAGE_KEY = 'selected_ui_theme';
 const SIDEBAR_STORAGE_KEY = 'sidebar_visible';
+const MAX_CACHED_OUTPUT_CHARS = 200000;
 let currentTool = 'json';
 let currentTheme = 'light';
 let inputErrorState = null;
 let utilityMode = 'base64-encode-text';
 let utilityFile = null;
 let utilityDecodedFile = null;
+let inputLineCount = 1;
+let renderedErrorLine = null;
 const toolInputCache = {
     json: '',
     yaml: '',
@@ -137,18 +146,29 @@ if (utilModeSelect && !utilModeSelect.value) {
 
 function handleInputChange() {
     toolInputCache[currentTool] = inputJson.value;
+    const nextLineCount = inputJson.value.split('\n').length;
+    if (nextLineCount !== inputLineCount) {
+        inputLineCount = nextLineCount;
+        updateLineNumbers();
+    }
     clearInputErrorMarker();
     errorMessage.classList.remove('show');
 }
 
 function updateLineNumbers() {
-    const lines = inputJson.value.split('\n').length;
-    let html = '';
+    const lines = inputLineCount;
+    const errorLine = inputErrorState ? inputErrorState.line : null;
+    if (renderedErrorLine === errorLine && inputLineNumbers.childElementCount === lines) {
+        return;
+    }
+
+    const html = [];
     for (let i = 1; i <= lines; i++) {
         const isErrorLine = inputErrorState && inputErrorState.line === i;
-        html += `<span class="line-number ${isErrorLine ? 'line-number-error' : ''}">${i}</span>`;
+        html.push(`<span class="line-number ${isErrorLine ? 'line-number-error' : ''}">${i}</span>`);
     }
-    inputLineNumbers.innerHTML = html;
+    inputLineNumbers.innerHTML = html.join('');
+    renderedErrorLine = errorLine;
 }
 
 function syncScroll() {
@@ -274,7 +294,11 @@ function updateUtilityControlsVisibility() {
         utilFileName.style.display = isUtility && fileMode && utilityMode.includes('encode') ? 'inline' : 'none';
     }
     if (!isUtility) {
+        utilityFile = null;
         utilityDecodedFile = null;
+        if (utilFileInput) {
+            utilFileInput.value = '';
+        }
     }
     updateUtilityDownloadState();
     updateUtilityFileLabel();
@@ -331,6 +355,7 @@ function setTool(tool, persist = true) {
     });
 
     inputJson.value = toolInputCache[currentTool] || '';
+    inputLineCount = inputJson.value ? inputJson.value.split('\n').length : 1;
     inputJson.scrollTop = 0;
     syncScroll();
     clearInputErrorMarker();
@@ -543,7 +568,8 @@ function convertTimestamp() {
 
 function utf8ToBytes(text) {
     if (typeof TextEncoder !== 'undefined') {
-        return new TextEncoder().encode(text);
+        utf8ToBytes.encoder = utf8ToBytes.encoder || new TextEncoder();
+        return utf8ToBytes.encoder.encode(text);
     }
     const encoded = unescape(encodeURIComponent(text));
     const out = new Uint8Array(encoded.length);
@@ -553,7 +579,8 @@ function utf8ToBytes(text) {
 
 function bytesToUtf8(bytes) {
     if (typeof TextDecoder !== 'undefined') {
-        return new TextDecoder().decode(bytes);
+        bytesToUtf8.decoder = bytesToUtf8.decoder || new TextDecoder();
+        return bytesToUtf8.decoder.decode(bytes);
     }
     let binary = '';
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
@@ -605,7 +632,11 @@ function base64ToBytes(input) {
 }
 
 function bytesToHex(bytes) {
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+    let out = '';
+    for (let i = 0; i < bytes.length; i++) {
+        out += bytes[i].toString(16).padStart(2, '0');
+    }
+    return out;
 }
 
 function hexToBytes(input) {
@@ -1000,7 +1031,7 @@ function setInputErrorMarker(line, column, details = '') {
         return;
     }
     inputErrorState = { line, column: Number.isInteger(column) ? column : 1 };
-    document.getElementById('leftPanel')?.classList.add('panel-has-input-error');
+    leftPanel?.classList.add('panel-has-input-error');
     updateLineNumbers();
     if (inputErrorInline) {
         const base = `Input error at line ${inputErrorState.line}, column ${inputErrorState.column}`;
@@ -1033,7 +1064,7 @@ function buildJsonErrorDetails(input, errorInfo) {
 
 function clearInputErrorMarker() {
     inputErrorState = null;
-    document.getElementById('leftPanel')?.classList.remove('panel-has-input-error');
+    leftPanel?.classList.remove('panel-has-input-error');
     updateLineNumbers();
     if (inputErrorInline) {
         inputErrorInline.textContent = '';
@@ -1068,19 +1099,19 @@ function highlightInputErrorPosition(line, column) {
 
 function displayOutput(formatted) {
     const lines = formatted.split('\n');
-    let html = '';
+    const html = [];
     for (let i = 0; i < lines.length; i++) {
-        html += `<div class="output-line">`;
-        html += `<div class="output-line-numbers">${i + 1}</div>`;
-        html += `<div class="output-content">${highlightLine(lines[i])}</div>`;
-        html += `</div>`;
+        html.push(
+            `<div class="output-line"><div class="output-line-numbers">${i + 1}</div><div class="output-content">${highlightLine(lines[i])}</div></div>`
+        );
     }
-    outputContent.innerHTML = html;
-    toolOutputCache[currentTool] = formatted;
+    outputContent.innerHTML = html.join('');
+    toolOutputCache[currentTool] = formatted.length <= MAX_CACHED_OUTPUT_CHARS ? formatted : '';
 }
 
 function clearAll() {
     inputJson.value = '';
+    inputLineCount = 1;
     toolInputCache[currentTool] = '';
     toolOutputCache[currentTool] = '';
     toolErrorCache[currentTool] = { show: false, text: '', location: '' };
@@ -1096,7 +1127,7 @@ function clearAll() {
 }
 
 function copyOutput() {
-    const text = outputContent.textContent;
+    const text = toolOutputCache[currentTool] || outputContent.textContent;
     navigator.clipboard.writeText(text).then(() => {
         alert('Copied to clipboard!');
     });
@@ -1708,7 +1739,6 @@ function parseLooseYamlToObject(text) {
 
 function fixJsonStep(json, errorMsg) {
     let fixed = json;
-    let success = false;
     const positionMatch = errorMsg.match(/position (\d+)/i);
     const pos = positionMatch ? parseInt(positionMatch[1], 10) : 0;
 
@@ -1759,11 +1789,10 @@ function fixJsonStep(json, errorMsg) {
 
     try {
         JSON.parse(fixed);
-        success = true;
+        return { fixed, success: true };
     } catch (e) {
+        return { fixed, success: false };
     }
-
-    return { fixed, success };
 }
 
 function fixTrailingCommas(json) {
@@ -2008,8 +2037,8 @@ if (utilPickFileBtn && utilFileInput) utilPickFileBtn.addEventListener('click', 
 if (utilClearFileBtn) utilClearFileBtn.addEventListener('click', clearUtilityFileSelection);
 if (utilFileInput) utilFileInput.addEventListener('change', handleUtilityFileSelect);
 if (utilDownloadBtn) utilDownloadBtn.addEventListener('click', downloadUtilityFile);
-document.querySelector('#leftPanel .btn-group .btn-secondary')?.addEventListener('click', clearAll);
-document.querySelector('#rightPanel .panel-header .btn-secondary')?.addEventListener('click', copyOutput);
+clearBtn?.addEventListener('click', clearAll);
+copyBtn?.addEventListener('click', copyOutput);
 document.querySelectorAll('.tool-choice').forEach((el) => {
     const key = el.getAttribute('data-tool');
     if (key) el.addEventListener('click', () => chooseTool(key));
@@ -2019,12 +2048,6 @@ initTheme();
 initSidebar();
 initToolChoice();
 if (inputLineNumbers) updateLineNumbers();
-
-// Resizer functionality
-const resizer = document.getElementById('resizer');
-const leftPanel = document.getElementById('leftPanel');
-const rightPanel = document.getElementById('rightPanel');
-const container = document.querySelector('.container');
 
 let isResizing = false;
 
