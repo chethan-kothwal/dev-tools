@@ -11,6 +11,10 @@
 </head>
 <body>
     <header>
+        <button class="tool-drawer-btn" id="sidebarToggleBtn" type="button" title="Open tools" aria-label="Open tools" aria-expanded="false" aria-controls="sidebar">
+            <svg class="icon-menu" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            Tools
+        </button>
         <h1 id="appTitle">Dev Tools</h1>
         <p class="subtitle" id="appSubtitle">Format, validate, and auto-fix data instantly.</p>
         <div class="header-actions">
@@ -21,7 +25,7 @@
     <div class="tool-picker" id="toolPicker">
         <div class="tool-picker-card">
             <div class="tool-picker-title">Choose your tool</div>
-            <p class="tool-picker-subtitle">This is shown on your first visit. You can switch anytime from the left sidebar.</p>
+            <p class="tool-picker-subtitle">This is shown on your first visit. You can switch anytime from the tools drawer in the header.</p>
             <div class="tool-picker-options">
                 <button class="tool-choice" data-tool="json">
                     <strong>JSON Formatter</strong>
@@ -52,11 +56,12 @@
     </div>
 
     <div class="app-shell" id="appShell">
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-toggle-strip">
-                <button class="sidebar-toggle-btn" id="sidebarToggleBtn" type="button" title="Toggle sidebar" aria-label="Toggle sidebar">
-                    <svg class="icon-menu" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                    <svg class="icon-panel" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        <div class="sidebar-backdrop" id="sidebarBackdrop" hidden></div>
+        <aside class="sidebar" id="sidebar" aria-hidden="true">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Tools</div>
+                <button class="sidebar-close-btn" id="sidebarCloseBtn" type="button" title="Close tools" aria-label="Close tools">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
             <div class="sidebar-content">

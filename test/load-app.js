@@ -9,7 +9,15 @@ class FakeClassList {
   }
   add(name) { this._set.add(name); }
   remove(name) { this._set.delete(name); }
-  toggle(name) {
+  toggle(name, force) {
+    if (typeof force === 'boolean') {
+      if (force) {
+        this._set.add(name);
+        return true;
+      }
+      this._set.delete(name);
+      return false;
+    }
     if (this._set.has(name)) {
       this._set.delete(name);
       return false;

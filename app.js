@@ -8,6 +8,8 @@ const inputErrorInline = document.getElementById('inputErrorInline');
 const appTitle = document.getElementById('appTitle');
 const appSubtitle = document.getElementById('appSubtitle');
 const toolPicker = document.getElementById('toolPicker');
+const sidebar = document.getElementById('sidebar');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
 const jsonToolBtn = document.getElementById('jsonToolBtn');
 const yamlToolBtn = document.getElementById('yamlToolBtn');
 const jwtToolBtn = document.getElementById('jwtToolBtn');
@@ -16,6 +18,7 @@ const timestampToolBtn = document.getElementById('timestampToolBtn');
 const base64HexToolBtn = document.getElementById('base64HexToolBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
 const autoFixBtn = document.getElementById('autoFixBtn');
 const primaryActionBtn = document.getElementById('primaryActionBtn');
 const inputPanelTitle = document.getElementById('inputPanelTitle');
@@ -367,6 +370,12 @@ function setTool(tool, persist = true) {
 function chooseTool(tool) {
     setTool(tool, true);
     toolPicker.classList.remove('show');
+    closeSidebar(true);
+}
+
+function selectSidebarTool(tool) {
+    setTool(tool, true);
+    closeSidebar(true);
 }
 
 function initToolChoice() {
@@ -404,18 +413,46 @@ function initTheme() {
     applyTheme(prefersDark ? 'dark' : 'light', false);
 }
 
-function toggleSidebar() {
-    const hidden = document.body.classList.toggle('sidebar-hidden');
+function setSidebarOpen(isOpen, persist = true) {
+    document.body.classList.toggle('sidebar-open', Boolean(isOpen));
+    if (sidebarToggleBtn) {
+        sidebarToggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+    if (sidebar) {
+        sidebar.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    }
+    if (sidebarBackdrop) {
+        sidebarBackdrop.hidden = !isOpen;
+    }
+
     try {
-        localStorage.setItem(SIDEBAR_STORAGE_KEY, hidden ? '0' : '1');
+        if (persist) {
+            localStorage.setItem(SIDEBAR_STORAGE_KEY, isOpen ? '1' : '0');
+        }
     } catch (e) {}
+}
+
+function openSidebar(persist = true) {
+    setSidebarOpen(true, persist);
+}
+
+function closeSidebar(persist = true) {
+    setSidebarOpen(false, persist);
+}
+
+function toggleSidebar() {
+    const isOpen = !document.body.classList.contains('sidebar-open');
+    setSidebarOpen(isOpen, true);
 }
 
 function initSidebar() {
     try {
         const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-        if (stored === '0') document.body.classList.add('sidebar-hidden');
+        setSidebarOpen(stored === '1', false);
     } catch (e) {}
+    if (sidebarBackdrop && sidebarBackdrop.hidden === false && !document.body.classList.contains('sidebar-open')) {
+        sidebarBackdrop.hidden = true;
+    }
 }
 
 function formatCurrent() {
@@ -2026,22 +2063,34 @@ if (sidebarToggleBtn) sidebarToggleBtn.addEventListener('click', toggleSidebar);
 if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
 if (primaryActionBtn) primaryActionBtn.addEventListener('click', formatCurrent);
 if (autoFixBtn) autoFixBtn.addEventListener('click', autoFix);
-if (jsonToolBtn) jsonToolBtn.addEventListener('click', () => setTool('json'));
-if (yamlToolBtn) yamlToolBtn.addEventListener('click', () => setTool('yaml'));
-if (jwtToolBtn) jwtToolBtn.addEventListener('click', () => setTool('jwt'));
-if (cronToolBtn) cronToolBtn.addEventListener('click', () => setTool('cron'));
-if (timestampToolBtn) timestampToolBtn.addEventListener('click', () => setTool('timestamp'));
-if (base64HexToolBtn) base64HexToolBtn.addEventListener('click', () => setTool('base64hex'));
+if (jsonToolBtn) jsonToolBtn.addEventListener('click', () => selectSidebarTool('json'));
+if (yamlToolBtn) yamlToolBtn.addEventListener('click', () => selectSidebarTool('yaml'));
+if (jwtToolBtn) jwtToolBtn.addEventListener('click', () => selectSidebarTool('jwt'));
+if (cronToolBtn) cronToolBtn.addEventListener('click', () => selectSidebarTool('cron'));
+if (timestampToolBtn) timestampToolBtn.addEventListener('click', () => selectSidebarTool('timestamp'));
+if (base64HexToolBtn) base64HexToolBtn.addEventListener('click', () => selectSidebarTool('base64hex'));
 if (utilModeSelect) utilModeSelect.addEventListener('change', handleUtilityModeChange);
 if (utilPickFileBtn && utilFileInput) utilPickFileBtn.addEventListener('click', () => utilFileInput.click());
 if (utilClearFileBtn) utilClearFileBtn.addEventListener('click', clearUtilityFileSelection);
 if (utilFileInput) utilFileInput.addEventListener('change', handleUtilityFileSelect);
 if (utilDownloadBtn) utilDownloadBtn.addEventListener('click', downloadUtilityFile);
+if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', () => closeSidebar(true));
+if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', () => closeSidebar(true));
 clearBtn?.addEventListener('click', clearAll);
 copyBtn?.addEventListener('click', copyOutput);
 document.querySelectorAll('.tool-choice').forEach((el) => {
     const key = el.getAttribute('data-tool');
     if (key) el.addEventListener('click', () => chooseTool(key));
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (toolPicker?.classList.contains('show')) {
+            toolPicker.classList.remove('show');
+        }
+        if (document.body.classList.contains('sidebar-open')) {
+            closeSidebar(true);
+        }
+    }
 });
 
 initTheme();
