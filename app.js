@@ -26,6 +26,27 @@ const SIDEBAR_STORAGE_KEY = 'sidebar_visible';
 let currentTool = 'json';
 let currentTheme = 'light';
 let inputErrorState = null;
+const toolInputCache = {
+    json: '',
+    yaml: '',
+    jwt: '',
+    cron: '',
+    timestamp: ''
+};
+const toolOutputCache = {
+    json: '',
+    yaml: '',
+    jwt: '',
+    cron: '',
+    timestamp: ''
+};
+const toolErrorCache = {
+    json: { show: false, text: '', location: '' },
+    yaml: { show: false, text: '', location: '' },
+    jwt: { show: false, text: '', location: '' },
+    cron: { show: false, text: '', location: '' },
+    timestamp: { show: false, text: '', location: '' }
+};
 const toolButtons = {
     json: jsonToolBtn,
     yaml: yamlToolBtn,
@@ -88,6 +109,7 @@ if (inputJson) {
 }
 
 function handleInputChange() {
+    toolInputCache[currentTool] = inputJson.value;
     clearInputErrorMarker();
     errorMessage.classList.remove('show');
 }
@@ -117,9 +139,60 @@ function highlightJson(text) {
     return json;
 }
 
+function highlightYamlValue(valueText) {
+    const leading = (valueText.match(/^\s*/) || [''])[0];
+    const trailing = (valueText.match(/\s*$/) || [''])[0];
+    const trimmed = valueText.trim();
+
+    if (!trimmed) return valueText;
+
+    let cssClass = 'yaml-value';
+    if (/^["'][\s\S]*["']$/.test(trimmed)) cssClass = 'yaml-string';
+    else if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) cssClass = 'yaml-number';
+    else if (/^(true|false|yes|no|on|off)$/i.test(trimmed)) cssClass = 'yaml-boolean';
+    else if (/^(null|~)$/i.test(trimmed)) cssClass = 'yaml-null';
+
+    return `${leading}<span class="${cssClass}">${trimmed}</span>${trailing}`;
+}
+
+function highlightYaml(text) {
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    if (/^\s*#/.test(escaped)) {
+        return `<span class="yaml-comment">${escaped}</span>`;
+    }
+
+    const keyValueMatch = escaped.match(/^(\s*(?:-\s+)?)((?:"[^"]+"|'[^']+'|[^\s:#][^:#]*?))(\s*:\s*)(.*)$/);
+    if (keyValueMatch) {
+        const prefix = keyValueMatch[1];
+        const key = keyValueMatch[2];
+        const separator = keyValueMatch[3];
+        const rest = keyValueMatch[4];
+        const commentMatch = rest.match(/^(.*?)(\s+#.*)$/);
+        const value = commentMatch ? commentMatch[1] : rest;
+        const comment = commentMatch ? `<span class="yaml-comment">${commentMatch[2]}</span>` : '';
+        return `${prefix}<span class="yaml-key">${key}</span>${separator}${highlightYamlValue(value)}${comment}`;
+    }
+
+    const listItemMatch = escaped.match(/^(\s*-\s+)(.*)$/);
+    if (listItemMatch) {
+        const prefix = listItemMatch[1];
+        const rest = listItemMatch[2];
+        const commentMatch = rest.match(/^(.*?)(\s+#.*)$/);
+        const value = commentMatch ? commentMatch[1] : rest;
+        const comment = commentMatch ? `<span class="yaml-comment">${commentMatch[2]}</span>` : '';
+        return `${prefix}${highlightYamlValue(value)}${comment}`;
+    }
+
+    return escaped;
+}
+
 function highlightLine(line) {
     if (currentTool === 'json') {
         return highlightJson(line);
+    }
+    if (currentTool === 'yaml') {
+        return highlightYaml(line);
     }
     return line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -128,7 +201,35 @@ function getToolConfig(tool) {
     return TOOL_CONFIG[tool] || TOOL_CONFIG.json;
 }
 
+function cacheCurrentToolState() {
+    if (!TOOL_CONFIG[currentTool]) return;
+    toolInputCache[currentTool] = inputJson.value;
+    toolErrorCache[currentTool] = {
+        show: errorMessage.classList.contains('show'),
+        text: errorText.textContent || '',
+        location: errorLocation.textContent || ''
+    };
+}
+
+function restoreToolOutput(tool) {
+    const cached = toolOutputCache[tool] || '';
+    if (!cached) {
+        outputContent.innerHTML = '';
+        return;
+    }
+    displayOutput(cached);
+}
+
+function restoreToolError(tool) {
+    const cached = toolErrorCache[tool] || { show: false, text: '', location: '' };
+    errorText.textContent = cached.text || '';
+    errorLocation.textContent = cached.location || '';
+    errorMessage.classList.toggle('show', Boolean(cached.show));
+}
+
 function setTool(tool, persist = true) {
+    cacheCurrentToolState();
+
     currentTool = TOOL_CONFIG[tool] ? tool : 'json';
 
     if (persist) {
@@ -148,7 +249,13 @@ function setTool(tool, persist = true) {
         toolButtons[key].classList.toggle('active', key === currentTool);
     });
 
-    clearAll();
+    inputJson.value = toolInputCache[currentTool] || '';
+    inputJson.scrollTop = 0;
+    syncScroll();
+    clearInputErrorMarker();
+    restoreToolOutput(currentTool);
+    restoreToolError(currentTool);
+    updateLineNumbers();
 }
 
 function chooseTool(tool) {
@@ -517,12 +624,14 @@ function showSimpleError(message) {
     errorText.textContent = message;
     errorLocation.textContent = '';
     errorMessage.classList.add('show');
+    toolErrorCache[currentTool] = { show: true, text: message, location: '' };
 }
 
 function showError(message, line, column, details = '') {
     errorText.textContent = message;
     errorLocation.textContent = `Line ${line}, Column ${column}`;
     errorMessage.classList.add('show');
+    toolErrorCache[currentTool] = { show: true, text: message, location: `Line ${line}, Column ${column}` };
     setInputErrorMarker(line, column, details);
 }
 
@@ -608,10 +717,14 @@ function displayOutput(formatted) {
         html += `</div>`;
     }
     outputContent.innerHTML = html;
+    toolOutputCache[currentTool] = formatted;
 }
 
 function clearAll() {
     inputJson.value = '';
+    toolInputCache[currentTool] = '';
+    toolOutputCache[currentTool] = '';
+    toolErrorCache[currentTool] = { show: false, text: '', location: '' };
     clearInputErrorMarker();
     updateLineNumbers();
     outputContent.innerHTML = '';
