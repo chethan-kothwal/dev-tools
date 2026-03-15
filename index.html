@@ -94,6 +94,53 @@
                 <div class="error-location" id="errorLocation"></div>
             </div>
 
+            <div class="cron-workspace" id="cronWorkspace">
+                <div class="cron-layout">
+                    <div class="cron-left-column">
+                        <section class="cron-card">
+                            <div class="cron-label">Expression (5 Fields)</div>
+                            <div class="cron-input-row">
+                                <input id="cronExpressionInput" class="cron-expression-input" type="text" placeholder="0 9 * * 1-5" spellcheck="false" />
+                                <button class="cron-parse-btn" id="cronParseBtn" type="button">Parse</button>
+                            </div>
+                            <div class="cron-field-chips" id="cronFieldChips">
+                                <span class="cron-field-chip">minute</span>
+                                <span class="cron-field-chip">hour</span>
+                                <span class="cron-field-chip">day</span>
+                                <span class="cron-field-chip">month</span>
+                                <span class="cron-field-chip">weekday</span>
+                            </div>
+                        </section>
+
+                        <section class="cron-examples">
+                            <div class="cron-label">Examples</div>
+                            <div class="cron-example-grid" id="cronExampleGrid">
+                                <button class="cron-example-chip" type="button" data-expression="* * * * *"><code>* * * * *</code><span>Every minute</span></button>
+                                <button class="cron-example-chip" type="button" data-expression="0 * * * *"><code>0 * * * *</code><span>Every hour</span></button>
+                                <button class="cron-example-chip" type="button" data-expression="0 0 * * *"><code>0 0 * * *</code><span>Every day at midnight</span></button>
+                                <button class="cron-example-chip" type="button" data-expression="0 9 * * 1-5"><code>0 9 * * 1-5</code><span>Weekdays at 9am</span></button>
+                                <button class="cron-example-chip" type="button" data-expression="30 6 1 * *"><code>30 6 1 * *</code><span>1st of month at 6:30am</span></button>
+                                <button class="cron-example-chip" type="button" data-expression="0 0 * * 0"><code>0 0 * * 0</code><span>Every Sunday</span></button>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="cron-right-column">
+                        <section class="cron-results" id="cronResults">
+                            <div class="cron-results-header">
+                                <div>
+                                    <div class="cron-label">Next Runs</div>
+                                    <p class="cron-results-subtitle" id="cronResultsSubtitle">Parse an expression to see the next scheduled times.</p>
+                                </div>
+                            </div>
+                            <div class="cron-run-list" id="cronRunList">
+                                <div class="cron-run-empty">Upcoming runs will appear here.</div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
             <div class="container">
                 <div class="panel" id="leftPanel">
                     <div class="panel-header">

@@ -4,6 +4,12 @@ const outputContent = document.getElementById('outputContent');
 const errorMessage = document.getElementById('errorMessage');
 const errorText = document.getElementById('errorText');
 const errorLocation = document.getElementById('errorLocation');
+const cronWorkspace = document.getElementById('cronWorkspace');
+const cronExpressionInput = document.getElementById('cronExpressionInput');
+const cronParseBtn = document.getElementById('cronParseBtn');
+const cronFieldChips = document.getElementById('cronFieldChips');
+const cronResultsSubtitle = document.getElementById('cronResultsSubtitle');
+const cronRunList = document.getElementById('cronRunList');
 const inputErrorInline = document.getElementById('inputErrorInline');
 const appTitle = document.getElementById('appTitle');
 const appSubtitle = document.getElementById('appSubtitle');
@@ -46,6 +52,7 @@ const resizer = document.getElementById('resizer');
 const container = document.querySelector('.container');
 const clearBtn = document.querySelector('#leftPanel .btn-group .btn-secondary');
 const copyBtn = document.getElementById('copyOutputBtn');
+const cronExampleButtons = document.querySelectorAll('.cron-example-chip');
 
 const TOOL_STORAGE_KEY = 'selected_formatter_tool';
 const THEME_STORAGE_KEY = 'selected_ui_theme';
@@ -177,6 +184,18 @@ if (regexPatternInput) {
 if (regexFlagsInput) {
     regexFlagsInput.addEventListener('input', handleRegexConfigChange);
 }
+if (cronExpressionInput) {
+    cronExpressionInput.addEventListener('input', handleCronExpressionChange);
+    cronExpressionInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            analyzeCron();
+        }
+    });
+}
+if (cronParseBtn) {
+    cronParseBtn.addEventListener('click', analyzeCron);
+}
 if (utilModeSelect && !utilModeSelect.value) {
     utilModeSelect.value = utilityMode;
 }
@@ -202,6 +221,24 @@ function handleInputChange() {
     }
     clearInputErrorMarker();
     errorMessage.classList.remove('show');
+}
+
+function handleCronExpressionChange() {
+    const value = cronExpressionInput ? cronExpressionInput.value : '';
+    toolInputCache.cron = value;
+    updateCronFieldChips(value);
+    if (currentTool === 'cron') {
+        errorMessage.classList.remove('show');
+    }
+}
+
+function applyCronExample(expression) {
+    if (!cronExpressionInput) return;
+    cronExpressionInput.value = expression;
+    handleCronExpressionChange();
+    if (currentTool === 'cron') {
+        analyzeCron();
+    }
 }
 
 function updateLineNumbers() {
@@ -365,9 +402,23 @@ function updateRegexControlsVisibility() {
     }
 }
 
+function updateCronWorkspaceVisibility() {
+    const isCron = currentTool === 'cron';
+    cronWorkspace?.classList.toggle('show', isCron);
+    container?.classList.toggle('hidden', isCron);
+    if (isCron && cronExpressionInput) {
+        cronExpressionInput.value = toolInputCache.cron || '';
+        updateCronFieldChips(cronExpressionInput.value);
+    }
+}
+
 function cacheCurrentToolState() {
     if (!TOOL_CONFIG[currentTool]) return;
-    toolInputCache[currentTool] = inputJson.value;
+    if (currentTool === 'cron') {
+        toolInputCache.cron = cronExpressionInput ? cronExpressionInput.value : toolInputCache.cron;
+    } else {
+        toolInputCache[currentTool] = inputJson.value;
+    }
     if (currentTool === 'regex') {
         regexPattern = regexPatternInput ? regexPatternInput.value : regexPattern;
         regexFlags = regexFlagsInput ? regexFlagsInput.value : regexFlags;
@@ -380,6 +431,9 @@ function cacheCurrentToolState() {
 }
 
 function restoreToolOutput(tool) {
+    if (tool === 'cron') {
+        return;
+    }
     if (tool === 'regex') {
         renderRegexStatus();
         return;
@@ -418,6 +472,7 @@ function setTool(tool, persist = true) {
     outputPanelTitle.textContent = config.outputTitle;
     updateUtilityControlsVisibility();
     updateRegexControlsVisibility();
+    updateCronWorkspaceVisibility();
 
     Object.keys(toolButtons).forEach((key) => {
         toolButtons[key].classList.toggle('active', key === currentTool);
@@ -629,7 +684,9 @@ function decodeJwtToken(input, nowSec = Math.floor(Date.now() / 1000)) {
 }
 
 function analyzeCron() {
-    const input = inputJson.value.trim();
+    const input = currentTool === 'cron'
+        ? String(cronExpressionInput ? cronExpressionInput.value : toolInputCache.cron || '').trim()
+        : inputJson.value.trim();
     if (!input) {
         showSimpleError('Please enter a cron expression');
         return;
@@ -639,6 +696,12 @@ function analyzeCron() {
         const schedule = parseCronExpression(input);
         const now = new Date();
         const runs = getNextCronRuns(schedule, now, 10);
+        if (currentTool === 'cron') {
+            toolInputCache.cron = input;
+            renderCronResults(input, runs);
+            errorMessage.classList.remove('show');
+            return;
+        }
         const lines = [
             `Expression: ${input}`,
             `Now (Local): ${now.toString()}`,
@@ -656,6 +719,33 @@ function analyzeCron() {
     } catch (e) {
         showSimpleError('Invalid cron expression: ' + e.message);
     }
+}
+
+function updateCronFieldChips(expression) {
+    if (!cronFieldChips) return;
+    const labels = ['minute', 'hour', 'day', 'month', 'weekday'];
+    const parts = String(expression || '').trim().split(/\s+/).filter(Boolean);
+    cronFieldChips.innerHTML = labels.map((label, index) => {
+        const value = parts[index] || label;
+        return `<span class="cron-field-chip ${parts[index] ? 'is-filled' : ''}">${value}</span>`;
+    }).join('');
+}
+
+function renderCronResults(expression, runs) {
+    if (!cronRunList || !cronResultsSubtitle) return;
+    cronResultsSubtitle.textContent = `Expression: ${expression}`;
+    if (!runs.length) {
+        cronRunList.innerHTML = '<div class="cron-run-empty">No matching runs were found in the next year.</div>';
+        return;
+    }
+
+    cronRunList.innerHTML = runs.map((run, index) => {
+        return `<div class="cron-run-card">
+            <div class="cron-run-index">#${index + 1}</div>
+            <div class="cron-run-main">${run.toLocaleString()}</div>
+            <div class="cron-run-secondary">${run.toISOString()}</div>
+        </div>`;
+    }).join('');
 }
 
 function convertTimestamp() {
@@ -1326,6 +1416,19 @@ function displayOutput(formatted) {
 }
 
 function clearAll() {
+    if (currentTool === 'cron') {
+        toolInputCache.cron = '';
+        if (cronExpressionInput) cronExpressionInput.value = '';
+        updateCronFieldChips('');
+        if (cronResultsSubtitle) {
+            cronResultsSubtitle.textContent = 'Parse an expression to see the next scheduled times.';
+        }
+        if (cronRunList) {
+            cronRunList.innerHTML = '<div class="cron-run-empty">Upcoming runs will appear here.</div>';
+        }
+        errorMessage.classList.remove('show');
+        return;
+    }
     inputJson.value = '';
     inputLineCount = 1;
     toolInputCache[currentTool] = '';
@@ -2265,6 +2368,9 @@ if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', () => closeSideba
 if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', () => closeSidebar(true));
 clearBtn?.addEventListener('click', clearAll);
 copyBtn?.addEventListener('click', copyOutput);
+cronExampleButtons.forEach((button) => {
+    button.addEventListener('click', () => applyCronExample(button.getAttribute('data-expression') || ''));
+});
 document.querySelectorAll('.tool-choice').forEach((el) => {
     const key = el.getAttribute('data-tool');
     if (key) el.addEventListener('click', () => chooseTool(key));

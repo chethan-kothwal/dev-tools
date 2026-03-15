@@ -6,8 +6,8 @@
     --border: #e2e8f0;
     --text-main: #111827;
     --text-muted: #6b7280;
-    --accent: #2563eb;
-    --accent-hover: #1d4ed8;
+    --accent: #1d4ed8;
+    --accent-hover: #1e40af;
     --btn-secondary: #ffffff;
     --btn-secondary-hover: #f3f4f6;
     --error: #cb3a30;
@@ -26,8 +26,8 @@
     --border: #2a2a2e;
     --text-main: #e5e7eb;
     --text-muted: #a1a1aa;
-    --accent: #60a5fa;
-    --accent-hover: #3b82f6;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
     --btn-secondary: #1d1d21;
     --btn-secondary-hover: #25252b;
     --error: #ff6f66;
@@ -358,6 +358,243 @@ body.sidebar-open .sidebar-backdrop {
     gap: 0;
     position: relative;
     z-index: 1;
+}
+
+.container.hidden {
+    display: none;
+}
+
+.cron-workspace {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 4px 0 12px;
+    overflow: auto;
+    animation: slideIn 0.45s ease both;
+}
+
+.cron-workspace.show {
+    display: flex;
+}
+
+.cron-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+    gap: 18px;
+    flex: 1;
+    min-height: 0;
+    align-items: start;
+}
+
+.cron-left-column,
+.cron-right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    flex: 1;
+    min-height: 0;
+    align-self: stretch;
+}
+
+.cron-card,
+.cron-results {
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(3px);
+}
+
+.cron-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.cron-input-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+}
+
+.cron-expression-input {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text-main);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    outline: none;
+}
+
+.cron-expression-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.cron-parse-btn {
+    border: 1px solid transparent;
+    background: var(--accent);
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.cron-parse-btn:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
+.cron-field-chips,
+.cron-example-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.cron-field-chips {
+    margin-top: 14px;
+}
+
+.cron-field-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 11px;
+    border-radius: 6px;
+    background: var(--toolbar-bg);
+    color: var(--text-muted);
+    font-size: 12px;
+    border: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.cron-field-chip.is-filled {
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--accent);
+    border-color: rgba(37, 99, 235, 0.22);
+}
+
+.cron-examples {
+    display: grid;
+    gap: 10px;
+}
+
+.cron-example-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--text-muted);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cron-example-chip:hover {
+    transform: translateY(-1px);
+    border-color: rgba(37, 99, 235, 0.28);
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+}
+
+.cron-example-chip code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text-main);
+}
+
+.cron-example-chip span {
+    font-size: 13px;
+}
+
+.cron-results-header {
+    margin-bottom: 12px;
+}
+
+.cron-results {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.cron-results-subtitle {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.cron-run-list {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-input);
+    padding: 12px;
+}
+
+.cron-run-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px 14px;
+    align-items: center;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    border-radius: 8px;
+    padding: 14px 16px;
+}
+
+.cron-run-index {
+    grid-row: span 2;
+    align-self: start;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+}
+
+.cron-run-main {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+.cron-run-secondary {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.cron-run-empty {
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    color: var(--text-muted);
+    background: transparent;
 }
 
 .panel {
@@ -1022,6 +1259,36 @@ textarea {
 
     .tool-picker-options {
         grid-template-columns: 1fr;
+    }
+
+    .cron-workspace {
+        gap: 18px;
+        padding: 6px 0 14px;
+    }
+
+    .cron-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .cron-card,
+    .cron-results {
+        padding: 18px;
+        border-radius: 14px;
+    }
+
+    .cron-input-row {
+        grid-template-columns: 1fr;
+    }
+
+    .cron-parse-btn {
+        width: 100%;
+        justify-self: stretch;
+    }
+
+    .cron-example-chip {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
     }
 
     .utility-control {
