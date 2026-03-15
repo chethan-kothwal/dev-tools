@@ -51,6 +51,10 @@
                     <strong>Base64/Hex Utilities</strong>
                     <span>Encode/decode text, files, and JWT header/payload parts.</span>
                 </button>
+                <button class="tool-choice" data-tool="regex">
+                    <strong>Regex Matcher <span class="tool-beta-badge">Beta</span></strong>
+                    <span>Test expressions against strings and learn regex building blocks.</span>
+                </button>
             </div>
         </div>
     </div>
@@ -76,6 +80,7 @@
                     <button class="sidebar-tool" id="cronToolBtn" type="button">Cron Schedule Parser</button>
                     <button class="sidebar-tool" id="timestampToolBtn" type="button">Unix Timestamp Converter</button>
                     <button class="sidebar-tool" id="base64HexToolBtn" type="button">Base64/Hex Utilities</button>
+                    <button class="sidebar-tool" id="regexToolBtn" type="button">Regex Matcher <span class="tool-beta-badge">Beta</span></button>
                 </div>
             </div>
         </aside>
@@ -128,9 +133,29 @@
                         <button class="btn btn-secondary" id="utilDownloadBtn" type="button">Download File</button>
                         <input id="utilFileInput" type="file" hidden />
                     </div>
+                    <div class="regex-controls" id="regexControls">
+                        <label class="regex-control">
+                            <span>Regex Input</span>
+                            <input id="regexPatternInput" type="text" placeholder="Example: ^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" spellcheck="false" />
+                        </label>
+                        <label class="regex-control regex-flags-control">
+                            <span>Flags</span>
+                            <input id="regexFlagsInput" type="text" placeholder="gim" spellcheck="false" />
+                        </label>
+                    </div>
                     <div class="editor-wrapper">
                         <div class="line-numbers" id="inputLineNumbers">1</div>
                         <textarea id="inputJson" placeholder="Paste your data here..." spellcheck="false"></textarea>
+                    </div>
+                    <div class="regex-match-panel" id="regexMatchPanel">
+                        <section class="regex-section">
+                            <div class="regex-section-title">Match Result</div>
+                            <div class="regex-status-card" id="regexStatusCard">
+                                <div class="regex-status-badge" id="regexMatchBadge">Waiting for input</div>
+                                <div class="regex-status-text" id="regexMatchSummary">Add a regex expression and a test string, then click Test.</div>
+                                <pre class="regex-status-details" id="regexMatchDetails">Matches and capture groups will appear here.</pre>
+                            </div>
+                        </section>
                     </div>
                     <div class="input-error-inline" id="inputErrorInline"></div>
                 </div>
@@ -142,10 +167,68 @@
                 <div class="panel" id="rightPanel">
                     <div class="panel-header">
                         <span class="panel-title" id="outputPanelTitle">Output</span>
-                        <button class="btn btn-secondary" type="button">
+                        <button class="btn btn-secondary" id="copyOutputBtn" type="button">
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>
                             Copy
                         </button>
+                    </div>
+                    <div class="regex-workspace" id="regexWorkspace">
+                        <section class="regex-section">
+                            <div class="regex-section-title">Regex README</div>
+                            <div class="regex-readme">
+                                <p><strong>What regex does:</strong> A regex is a pattern that checks whether text follows a rule. You write the rule once, then test a string against it.</p>
+                                <div class="regex-readme-block">
+                                    <div class="regex-readme-heading">How to build one</div>
+                                    <p>Start with the exact text you want. Then replace the changing parts step by step.</p>
+                                    <p><strong>Example goal:</strong> Match dates like <code>2026-03-14</code>.</p>
+                                    <p><strong>Step 1:</strong> Start with the shape: <code>0000-00-00</code></p>
+                                    <p><strong>Step 2:</strong> Replace each number with a digit token: <code>\\d\\d\\d\\d-\\d\\d-\\d\\d</code></p>
+                                    <p><strong>Step 3:</strong> Shorten repeated parts with counts: <code>\\d{4}-\\d{2}-\\d{2}</code></p>
+                                    <p><strong>Step 4:</strong> Force the whole string to match: <code>^\\d{4}-\\d{2}-\\d{2}$</code></p>
+                                </div>
+                                <div class="regex-readme-block">
+                                    <div class="regex-readme-heading">Common building blocks</div>
+                                    <p><code>\\d</code> any digit like <code>0</code> to <code>9</code></p>
+                                    <p><code>\\w</code> word character like a letter, number, or underscore</p>
+                                    <p><code>\\s</code> whitespace like a space or tab</p>
+                                    <p><code>.</code> any single character</p>
+                                    <p><code>[abc]</code> one character from the list</p>
+                                    <p><code>[a-z]</code> one lowercase letter from <code>a</code> to <code>z</code></p>
+                                    <p><code>[^abc]</code> one character that is not in the list</p>
+                                </div>
+                                <div class="regex-readme-block">
+                                    <div class="regex-readme-heading">How repetition works</div>
+                                    <p><code>*</code> zero or more times</p>
+                                    <p><code>+</code> one or more times</p>
+                                    <p><code>?</code> zero or one time</p>
+                                    <p><code>{3}</code> exactly 3 times</p>
+                                    <p><code>{2,5}</code> between 2 and 5 times</p>
+                                </div>
+                                <div class="regex-readme-block">
+                                    <div class="regex-readme-heading">Important symbols</div>
+                                    <p><code>^</code> start of the string</p>
+                                    <p><code>$</code> end of the string</p>
+                                    <p><code>(...)</code> capture a part of the match</p>
+                                    <p><code>(?:...)</code> group without capturing</p>
+                                    <p><code>|</code> OR, for example <code>cat|dog</code></p>
+                                </div>
+                                <div class="regex-readme-block">
+                                    <div class="regex-readme-heading">Easy examples</div>
+                                    <p><strong>4 digits only:</strong> <code>^\\d{4}$</code></p>
+                                    <p><strong>Date:</strong> <code>^\\d{4}-\\d{2}-\\d{2}$</code></p>
+                                    <p><strong>Email:</strong> <code>^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$</code></p>
+                                    <p><strong>Starts with "cat":</strong> <code>^cat</code></p>
+                                    <p><strong>Contains only lowercase letters:</strong> <code>^[a-z]+$</code></p>
+                                </div>
+                                <div class="regex-readme-block">
+                                    <div class="regex-readme-heading">Flags</div>
+                                    <p><code>i</code> ignore uppercase vs lowercase</p>
+                                    <p><code>g</code> find all matches, not just the first one</p>
+                                    <p><code>m</code> let <code>^</code> and <code>$</code> work line by line</p>
+                                </div>
+                                <p><strong>Beginner tip:</strong> If your regex feels confusing, build the smallest piece that works first, test it, and only then add more rules.</p>
+                            </div>
+                        </section>
                     </div>
                     <div class="editor-wrapper">
                         <div class="output-area" id="outputArea">

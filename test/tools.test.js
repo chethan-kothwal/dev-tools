@@ -305,6 +305,29 @@ test('Timestamp: buildTimestampConversions rejects invalid date', () => {
   assert.throws(() => api.buildTimestampConversions('not-a-date'), /Invalid input date\/time/);
 });
 
+test('Regex: buildRegexMatchResult reports matches and capture groups', () => {
+  const result = api.buildRegexMatchResult('(foo)-(bar)', 'g', 'foo-bar and foo-bar');
+  assert.equal(result.isMatch, true);
+  assert.equal(result.state, 'match');
+  assert.match(result.summary, /matches this regex/i);
+  assert.match(result.details, /Found 2 matches/);
+  assert.match(result.details, /Groups: "foo", "bar"/);
+});
+
+test('Regex: buildRegexMatchResult reports no-match state', () => {
+  const result = api.buildRegexMatchResult('^cat$', 'i', 'dog');
+  assert.equal(result.isMatch, false);
+  assert.equal(result.state, 'no-match');
+  assert.match(result.summary, /does not match/i);
+});
+
+test('Regex: buildRegexMatchResult returns idle state when pattern is missing', () => {
+  const result = api.buildRegexMatchResult('', '', 'anything');
+  assert.equal(result.isMatch, false);
+  assert.equal(result.state, 'idle');
+  assert.match(result.summary, /Add a regex expression/i);
+});
+
 test('Line/Column helper: lineColumnToIndex maps correctly', () => {
   const text = 'abc\ndef\nghi';
   assert.equal(api.lineColumnToIndex(text, 1, 1), 0);

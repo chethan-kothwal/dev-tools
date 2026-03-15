@@ -16,6 +16,7 @@ const jwtToolBtn = document.getElementById('jwtToolBtn');
 const cronToolBtn = document.getElementById('cronToolBtn');
 const timestampToolBtn = document.getElementById('timestampToolBtn');
 const base64HexToolBtn = document.getElementById('base64HexToolBtn');
+const regexToolBtn = document.getElementById('regexToolBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
 const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
@@ -30,12 +31,21 @@ const utilClearFileBtn = document.getElementById('utilClearFileBtn');
 const utilFileName = document.getElementById('utilFileName');
 const utilDownloadBtn = document.getElementById('utilDownloadBtn');
 const utilFileInput = document.getElementById('utilFileInput');
+const regexControls = document.getElementById('regexControls');
+const regexPatternInput = document.getElementById('regexPatternInput');
+const regexFlagsInput = document.getElementById('regexFlagsInput');
+const regexWorkspace = document.getElementById('regexWorkspace');
+const regexMatchPanel = document.getElementById('regexMatchPanel');
+const regexMatchBadge = document.getElementById('regexMatchBadge');
+const regexMatchSummary = document.getElementById('regexMatchSummary');
+const regexMatchDetails = document.getElementById('regexMatchDetails');
+const outputEditorWrapper = document.querySelector('#rightPanel .editor-wrapper');
 const leftPanel = document.getElementById('leftPanel');
 const rightPanel = document.getElementById('rightPanel');
 const resizer = document.getElementById('resizer');
 const container = document.querySelector('.container');
 const clearBtn = document.querySelector('#leftPanel .btn-group .btn-secondary');
-const copyBtn = document.querySelector('#rightPanel .panel-header .btn-secondary');
+const copyBtn = document.getElementById('copyOutputBtn');
 
 const TOOL_STORAGE_KEY = 'selected_formatter_tool';
 const THEME_STORAGE_KEY = 'selected_ui_theme';
@@ -47,15 +57,21 @@ let inputErrorState = null;
 let utilityMode = 'base64-encode-text';
 let utilityFile = null;
 let utilityDecodedFile = null;
+let regexPattern = '';
+let regexFlags = '';
 let inputLineCount = 1;
 let renderedErrorLine = null;
+let isResizing = false;
+let pendingResizeFrame = 0;
+let pendingResizeClientX = null;
 const toolInputCache = {
     json: '',
     yaml: '',
     jwt: '',
     cron: '',
     timestamp: '',
-    base64hex: ''
+    base64hex: '',
+    regex: ''
 };
 const toolOutputCache = {
     json: '',
@@ -63,7 +79,8 @@ const toolOutputCache = {
     jwt: '',
     cron: '',
     timestamp: '',
-    base64hex: ''
+    base64hex: '',
+    regex: ''
 };
 const toolErrorCache = {
     json: { show: false, text: '', location: '' },
@@ -71,7 +88,8 @@ const toolErrorCache = {
     jwt: { show: false, text: '', location: '' },
     cron: { show: false, text: '', location: '' },
     timestamp: { show: false, text: '', location: '' },
-    base64hex: { show: false, text: '', location: '' }
+    base64hex: { show: false, text: '', location: '' },
+    regex: { show: false, text: '', location: '' }
 };
 const toolButtons = {
     json: jsonToolBtn,
@@ -79,7 +97,8 @@ const toolButtons = {
     jwt: jwtToolBtn,
     cron: cronToolBtn,
     timestamp: timestampToolBtn,
-    base64hex: base64HexToolBtn
+    base64hex: base64HexToolBtn,
+    regex: regexToolBtn
 };
 
 const TOOL_CONFIG = {
@@ -136,6 +155,15 @@ const TOOL_CONFIG = {
         showAutoFix: false,
         inputTitle: 'Utility Input',
         outputTitle: 'Utility Output'
+    },
+    regex: {
+        title: 'Regex Matcher (Beta)',
+        subtitle: 'Test regex expressions against strings and learn how to build them.',
+        placeholder: 'Enter the string you want to test against the regex...',
+        actionLabel: 'Test',
+        showAutoFix: false,
+        inputTitle: 'Regex String',
+        outputTitle: 'Regex Results'
     }
 };
 
@@ -143,16 +171,34 @@ if (inputJson) {
     inputJson.addEventListener('input', handleInputChange);
     inputJson.addEventListener('scroll', syncScroll);
 }
+if (regexPatternInput) {
+    regexPatternInput.addEventListener('input', handleRegexConfigChange);
+}
+if (regexFlagsInput) {
+    regexFlagsInput.addEventListener('input', handleRegexConfigChange);
+}
 if (utilModeSelect && !utilModeSelect.value) {
     utilModeSelect.value = utilityMode;
 }
 
+function countLines(text) {
+    if (!text) return 1;
+    let lines = 1;
+    for (let i = 0; i < text.length; i++) {
+        if (text.charCodeAt(i) === 10) lines++;
+    }
+    return lines;
+}
+
 function handleInputChange() {
     toolInputCache[currentTool] = inputJson.value;
-    const nextLineCount = inputJson.value.split('\n').length;
+    const nextLineCount = countLines(inputJson.value);
     if (nextLineCount !== inputLineCount) {
         inputLineCount = nextLineCount;
         updateLineNumbers();
+    }
+    if (currentTool === 'regex') {
+        renderRegexStatus();
     }
     clearInputErrorMarker();
     errorMessage.classList.remove('show');
@@ -308,9 +354,24 @@ function updateUtilityControlsVisibility() {
     updateUtilityPlaceholder();
 }
 
+function updateRegexControlsVisibility() {
+    const isRegex = currentTool === 'regex';
+    regexControls?.classList.toggle('show', isRegex);
+    regexWorkspace?.classList.toggle('show', isRegex);
+    regexMatchPanel?.classList.toggle('show', isRegex);
+    outputEditorWrapper?.classList.toggle('hidden', isRegex);
+    if (copyBtn) {
+        copyBtn.style.display = isRegex ? 'none' : 'inline-flex';
+    }
+}
+
 function cacheCurrentToolState() {
     if (!TOOL_CONFIG[currentTool]) return;
     toolInputCache[currentTool] = inputJson.value;
+    if (currentTool === 'regex') {
+        regexPattern = regexPatternInput ? regexPatternInput.value : regexPattern;
+        regexFlags = regexFlagsInput ? regexFlagsInput.value : regexFlags;
+    }
     toolErrorCache[currentTool] = {
         show: errorMessage.classList.contains('show'),
         text: errorText.textContent || '',
@@ -319,6 +380,10 @@ function cacheCurrentToolState() {
 }
 
 function restoreToolOutput(tool) {
+    if (tool === 'regex') {
+        renderRegexStatus();
+        return;
+    }
     const cached = toolOutputCache[tool] || '';
     if (!cached) {
         outputContent.innerHTML = '';
@@ -352,13 +417,18 @@ function setTool(tool, persist = true) {
     inputPanelTitle.textContent = config.inputTitle;
     outputPanelTitle.textContent = config.outputTitle;
     updateUtilityControlsVisibility();
+    updateRegexControlsVisibility();
 
     Object.keys(toolButtons).forEach((key) => {
         toolButtons[key].classList.toggle('active', key === currentTool);
     });
 
     inputJson.value = toolInputCache[currentTool] || '';
-    inputLineCount = inputJson.value ? inputJson.value.split('\n').length : 1;
+    if (currentTool === 'regex') {
+        if (regexPatternInput) regexPatternInput.value = regexPattern;
+        if (regexFlagsInput) regexFlagsInput.value = regexFlags;
+    }
+    inputLineCount = countLines(inputJson.value);
     inputJson.scrollTop = 0;
     syncScroll();
     clearInputErrorMarker();
@@ -461,6 +531,7 @@ function formatCurrent() {
     if (currentTool === 'cron') return analyzeCron();
     if (currentTool === 'timestamp') return convertTimestamp();
     if (currentTool === 'base64hex') return runBase64HexUtility();
+    if (currentTool === 'regex') return runRegexMatcher();
     return formatJson();
 }
 
@@ -1046,6 +1117,114 @@ function parseJsonError(message, input) {
     return { message: cleanMessage, line, column };
 }
 
+function summarizeRegexMatches(matches) {
+    if (!matches.length) {
+        return 'No matches found.';
+    }
+
+    const lines = [`Found ${matches.length} match${matches.length === 1 ? '' : 'es'}:`];
+    matches.slice(0, 5).forEach((match, index) => {
+        lines.push(`${index + 1}. "${match.match}" at index ${match.index}`);
+        if (match.groups.length) {
+            lines.push(`   Groups: ${match.groups.map((group) => `"${group}"`).join(', ')}`);
+        }
+    });
+    if (matches.length > 5) {
+        lines.push(`...and ${matches.length - 5} more.`);
+    }
+    return lines.join('\n');
+}
+
+function buildRegexMatchResult(pattern, flags, input) {
+    const safePattern = String(pattern || '');
+    const safeFlags = String(flags || '').trim();
+    const safeInput = String(input || '');
+
+    if (!safePattern) {
+        return {
+            state: 'idle',
+            isMatch: false,
+            summary: 'Add a regex expression and a test string, then click Test.',
+            details: 'Matches and capture groups will appear here.'
+        };
+    }
+
+    const regex = new RegExp(safePattern, safeFlags);
+    const matcherFlags = regex.flags.includes('g') ? regex.flags : `${regex.flags}g`;
+    const matches = Array.from(safeInput.matchAll(new RegExp(regex.source, matcherFlags))).map((match) => ({
+        match: match[0],
+        index: match.index ?? 0,
+        groups: match.slice(1)
+    }));
+    const isMatch = matches.length > 0 || regex.test(safeInput);
+
+    return {
+        state: isMatch ? 'match' : 'no-match',
+        isMatch,
+        summary: isMatch ? 'The current string matches this regex.' : 'The current string does not match this regex.',
+        details: summarizeRegexMatches(matches)
+    };
+}
+
+function renderRegexStatus(result) {
+    if (!regexMatchBadge || !regexMatchSummary || !regexMatchDetails) return;
+
+    let next = result;
+    if (!next) {
+        try {
+            next = buildRegexMatchResult(regexPattern, regexFlags, inputJson.value);
+        } catch (e) {
+            next = {
+                state: 'idle',
+                isMatch: false,
+                summary: 'The regex could not be evaluated.',
+                details: 'Fix the pattern or flags and try again.'
+            };
+        }
+    }
+    regexMatchBadge.classList.remove('is-match', 'is-no-match');
+
+    if (next.state === 'match') {
+        regexMatchBadge.textContent = 'Match';
+        regexMatchBadge.classList.add('is-match');
+    } else if (next.state === 'no-match') {
+        regexMatchBadge.textContent = 'No Match';
+        regexMatchBadge.classList.add('is-no-match');
+    } else {
+        regexMatchBadge.textContent = 'Waiting for input';
+    }
+
+    regexMatchSummary.textContent = next.summary;
+    regexMatchDetails.textContent = next.details;
+}
+
+function handleRegexConfigChange() {
+    regexPattern = regexPatternInput ? regexPatternInput.value : '';
+    regexFlags = regexFlagsInput ? regexFlagsInput.value : '';
+    if (currentTool === 'regex') {
+        renderRegexStatus();
+    }
+}
+
+function runRegexMatcher() {
+    regexPattern = regexPatternInput ? regexPatternInput.value : '';
+    regexFlags = regexFlagsInput ? regexFlagsInput.value : '';
+
+    try {
+        const result = buildRegexMatchResult(regexPattern, regexFlags, inputJson.value);
+        renderRegexStatus(result);
+        clearToolError();
+    } catch (e) {
+        renderRegexStatus({
+            state: 'idle',
+            isMatch: false,
+            summary: 'The regex could not be evaluated.',
+            details: 'Fix the pattern or flags and try again.'
+        });
+        showSimpleError('Regex error: ' + e.message);
+    }
+}
+
 function showSimpleError(message) {
     clearInputErrorMarker();
     errorText.textContent = message;
@@ -1156,6 +1335,13 @@ function clearAll() {
         utilityDecodedFile = null;
         clearUtilityFileSelection();
         updateUtilityDownloadState();
+    }
+    if (currentTool === 'regex') {
+        regexPattern = '';
+        regexFlags = '';
+        if (regexPatternInput) regexPatternInput.value = '';
+        if (regexFlagsInput) regexFlagsInput.value = '';
+        renderRegexStatus();
     }
     clearInputErrorMarker();
     updateLineNumbers();
@@ -2069,6 +2255,7 @@ if (jwtToolBtn) jwtToolBtn.addEventListener('click', () => selectSidebarTool('jw
 if (cronToolBtn) cronToolBtn.addEventListener('click', () => selectSidebarTool('cron'));
 if (timestampToolBtn) timestampToolBtn.addEventListener('click', () => selectSidebarTool('timestamp'));
 if (base64HexToolBtn) base64HexToolBtn.addEventListener('click', () => selectSidebarTool('base64hex'));
+if (regexToolBtn) regexToolBtn.addEventListener('click', () => selectSidebarTool('regex'));
 if (utilModeSelect) utilModeSelect.addEventListener('change', handleUtilityModeChange);
 if (utilPickFileBtn && utilFileInput) utilPickFileBtn.addEventListener('click', () => utilFileInput.click());
 if (utilClearFileBtn) utilClearFileBtn.addEventListener('click', clearUtilityFileSelection);
@@ -2098,7 +2285,45 @@ initSidebar();
 initToolChoice();
 if (inputLineNumbers) updateLineNumbers();
 
-let isResizing = false;
+function applyResizerPosition(clientX) {
+    if (!container || !resizer || !leftPanel || !rightPanel) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const newLeftWidth = clientX - containerRect.left;
+    const containerWidth = containerRect.width;
+    const resizerWidth = resizer.offsetWidth;
+    const leftPercent = (newLeftWidth / containerWidth) * 100;
+    const rightPercent = 100 - leftPercent - (resizerWidth / containerWidth) * 100;
+    const minPercent = (200 / containerWidth) * 100;
+
+    if (leftPercent > minPercent && rightPercent > minPercent) {
+        leftPanel.style.flex = `0 0 ${leftPercent}%`;
+        rightPanel.style.flex = `0 0 ${rightPercent}%`;
+    }
+}
+
+function queueResize(clientX) {
+    pendingResizeClientX = clientX;
+    if (pendingResizeFrame) return;
+    pendingResizeFrame = window.requestAnimationFrame(() => {
+        pendingResizeFrame = 0;
+        if (pendingResizeClientX !== null) {
+            applyResizerPosition(pendingResizeClientX);
+        }
+    });
+}
+
+function stopResizing() {
+    if (!isResizing) return;
+    isResizing = false;
+    pendingResizeClientX = null;
+    if (pendingResizeFrame) {
+        window.cancelAnimationFrame(pendingResizeFrame);
+        pendingResizeFrame = 0;
+    }
+    resizer?.classList.remove('resizing');
+    document.body.style.cursor = '';
+}
 
 if (resizer) resizer.addEventListener('mousedown', (e) => {
     isResizing = true;
@@ -2109,31 +2334,11 @@ if (resizer) resizer.addEventListener('mousedown', (e) => {
 
 document.addEventListener('mousemove', (e) => {
     if (!isResizing) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const newLeftWidth = e.clientX - containerRect.left;
-    const containerWidth = containerRect.width;
-    const resizerWidth = resizer.offsetWidth;
-
-    // Calculate percentage for responsive sizing
-    const leftPercent = (newLeftWidth / containerWidth) * 100;
-    const rightPercent = 100 - leftPercent - (resizerWidth / containerWidth) * 100;
-
-    // Ensure minimum widths (200px minimum)
-    const minPercent = (200 / containerWidth) * 100;
-
-    if (leftPercent > minPercent && rightPercent > minPercent) {
-        leftPanel.style.flex = `0 0 ${leftPercent}%`;
-        rightPanel.style.flex = `0 0 ${rightPercent}%`;
-    }
+    queueResize(e.clientX);
 });
 
 document.addEventListener('mouseup', () => {
-    if (isResizing) {
-        isResizing = false;
-        resizer.classList.remove('resizing');
-        document.body.style.cursor = '';
-    }
+    stopResizing();
 });
 
 // Touch support for mobile
@@ -2147,27 +2352,12 @@ document.addEventListener('touchmove', (e) => {
     if (!isResizing) return;
 
     const touch = e.touches[0];
-    const containerRect = container.getBoundingClientRect();
-    const newLeftWidth = touch.clientX - containerRect.left;
-    const containerWidth = containerRect.width;
-    const resizerWidth = resizer.offsetWidth;
-
-    const leftPercent = (newLeftWidth / containerWidth) * 100;
-    const rightPercent = 100 - leftPercent - (resizerWidth / containerWidth) * 100;
-
-    const minPercent = (200 / containerWidth) * 100;
-
-    if (leftPercent > minPercent && rightPercent > minPercent) {
-        leftPanel.style.flex = `0 0 ${leftPercent}%`;
-        rightPanel.style.flex = `0 0 ${rightPercent}%`;
-    }
+    if (!touch) return;
+    queueResize(touch.clientX);
 });
 
 document.addEventListener('touchend', () => {
-    if (isResizing) {
-        isResizing = false;
-        resizer.classList.remove('resizing');
-    }
+    stopResizing();
 });
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -2210,6 +2400,7 @@ if (typeof module !== 'undefined' && module.exports) {
         getNextCronRuns,
         buildTimestampConversions,
         lineColumnToIndex,
-        buildJsonErrorDetails
+        buildJsonErrorDetails,
+        buildRegexMatchResult
     };
 }
