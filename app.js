@@ -45,6 +45,8 @@ const regexMatchPanel = document.getElementById('regexMatchPanel');
 const regexMatchBadge = document.getElementById('regexMatchBadge');
 const regexMatchSummary = document.getElementById('regexMatchSummary');
 const regexMatchDetails = document.getElementById('regexMatchDetails');
+const copyOutputText = document.getElementById('copyOutputText');
+const copyStatus = document.getElementById('copyStatus');
 const outputEditorWrapper = document.querySelector('#rightPanel .editor-wrapper');
 const leftPanel = document.getElementById('leftPanel');
 const rightPanel = document.getElementById('rightPanel');
@@ -58,6 +60,9 @@ const TOOL_STORAGE_KEY = 'selected_formatter_tool';
 const THEME_STORAGE_KEY = 'selected_ui_theme';
 const SIDEBAR_STORAGE_KEY = 'sidebar_visible';
 const MAX_CACHED_OUTPUT_CHARS = 200000;
+const MAX_HIGHLIGHT_OUTPUT_CHARS = 120000;
+const MAX_HIGHLIGHT_OUTPUT_LINES = 1500;
+const COPY_FEEDBACK_DURATION_MS = 1600;
 let currentTool = 'json';
 let currentTheme = 'light';
 let inputErrorState = null;
@@ -71,6 +76,10 @@ let renderedErrorLine = null;
 let isResizing = false;
 let pendingResizeFrame = 0;
 let pendingResizeClientX = null;
+let pendingRegexStatusFrame = 0;
+let copyFeedbackTimeout = 0;
+let renderedOutputSignature = '';
+let systemThemeMediaQuery = null;
 const toolInputCache = {
     json: '',
     yaml: '',
@@ -107,6 +116,13 @@ const toolButtons = {
     base64hex: base64HexToolBtn,
     regex: regexToolBtn
 };
+
+const requestUiFrame = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+    ? window.requestAnimationFrame.bind(window)
+    : (callback) => setTimeout(() => callback(Date.now()), 16);
+const cancelUiFrame = typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function'
+    ? window.cancelAnimationFrame.bind(window)
+    : clearTimeout;
 
 const TOOL_CONFIG = {
     json: {
@@ -217,7 +233,7 @@ function handleInputChange() {
         updateLineNumbers();
     }
     if (currentTool === 'regex') {
-        renderRegexStatus();
+        scheduleRegexStatusRender();
     }
     clearInputErrorMarker();
     errorMessage.classList.remove('show');
@@ -257,12 +273,19 @@ function updateLineNumbers() {
     renderedErrorLine = errorLine;
 }
 
+function escapeHtml(text) {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 function syncScroll() {
     inputLineNumbers.scrollTop = inputJson.scrollTop;
 }
 
 function highlightJson(text) {
-    let json = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let json = escapeHtml(text);
     json = json.replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:');
     json = json.replace(/: "([^"]*)"/g, ': <span class="json-string">"$1"</span>');
     json = json.replace(/: (\d+\.?\d*)/g, ': <span class="json-number">$1</span>');
@@ -289,7 +312,7 @@ function highlightYamlValue(valueText) {
 }
 
 function highlightYaml(text) {
-    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const escaped = escapeHtml(text);
 
     if (/^\s*#/.test(escaped)) {
         return `<span class="yaml-comment">${escaped}</span>`;
@@ -327,11 +350,31 @@ function highlightLine(line) {
     if (currentTool === 'yaml') {
         return highlightYaml(line);
     }
-    return line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return escapeHtml(line);
 }
 
 function getToolConfig(tool) {
     return TOOL_CONFIG[tool] || TOOL_CONFIG.json;
+}
+
+function getStoredValue(key) {
+    try {
+        return localStorage.getItem(key);
+    } catch (e) {
+        return null;
+    }
+}
+
+function setStoredValue(key, value) {
+    try {
+        localStorage.setItem(key, value);
+    } catch (e) {}
+}
+
+function clearOutputDisplay() {
+    if (!outputContent) return;
+    outputContent.innerHTML = '';
+    renderedOutputSignature = `${currentTool}\u0000`;
 }
 
 function updateUtilityFileLabel() {
@@ -440,7 +483,7 @@ function restoreToolOutput(tool) {
     }
     const cached = toolOutputCache[tool] || '';
     if (!cached) {
-        outputContent.innerHTML = '';
+        clearOutputDisplay();
         return;
     }
     displayOutput(cached);
@@ -459,7 +502,7 @@ function setTool(tool, persist = true) {
     currentTool = TOOL_CONFIG[tool] ? tool : 'json';
 
     if (persist) {
-        localStorage.setItem(TOOL_STORAGE_KEY, currentTool);
+        setStoredValue(TOOL_STORAGE_KEY, currentTool);
     }
 
     const config = getToolConfig(currentTool);
@@ -473,6 +516,7 @@ function setTool(tool, persist = true) {
     updateUtilityControlsVisibility();
     updateRegexControlsVisibility();
     updateCronWorkspaceVisibility();
+    setCopyButtonState('Copy', '');
 
     Object.keys(toolButtons).forEach((key) => {
         toolButtons[key].classList.toggle('active', key === currentTool);
@@ -504,7 +548,7 @@ function selectSidebarTool(tool) {
 }
 
 function initToolChoice() {
-    const savedTool = localStorage.getItem(TOOL_STORAGE_KEY);
+    const savedTool = getStoredValue(TOOL_STORAGE_KEY);
     if (!savedTool) {
         toolPicker.classList.add('show');
         setTool('json', false);
@@ -519,7 +563,7 @@ function applyTheme(theme, persist = true) {
     themeToggleBtn.textContent = currentTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
 
     if (persist) {
-        localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
+        setStoredValue(THEME_STORAGE_KEY, currentTheme);
     }
 }
 
@@ -528,14 +572,30 @@ function toggleTheme() {
 }
 
 function initTheme() {
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    const savedTheme = getStoredValue(THEME_STORAGE_KEY);
     if (savedTheme) {
         applyTheme(savedTheme, false);
         return;
     }
 
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    applyTheme(prefersDark ? 'dark' : 'light', false);
+    if (window.matchMedia) {
+        systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        applyTheme(systemThemeMediaQuery.matches ? 'dark' : 'light', false);
+
+        const handleSystemThemeChange = (event) => {
+            if (getStoredValue(THEME_STORAGE_KEY)) return;
+            applyTheme(event.matches ? 'dark' : 'light', false);
+        };
+
+        if (typeof systemThemeMediaQuery.addEventListener === 'function') {
+            systemThemeMediaQuery.addEventListener('change', handleSystemThemeChange);
+        } else if (typeof systemThemeMediaQuery.addListener === 'function') {
+            systemThemeMediaQuery.addListener(handleSystemThemeChange);
+        }
+        return;
+    }
+
+    applyTheme('light', false);
 }
 
 function setSidebarOpen(isOpen, persist = true) {
@@ -550,11 +610,15 @@ function setSidebarOpen(isOpen, persist = true) {
         sidebarBackdrop.hidden = !isOpen;
     }
 
-    try {
-        if (persist) {
-            localStorage.setItem(SIDEBAR_STORAGE_KEY, isOpen ? '1' : '0');
-        }
-    } catch (e) {}
+    if (persist) {
+        setStoredValue(SIDEBAR_STORAGE_KEY, isOpen ? '1' : '0');
+    }
+
+    if (isOpen) {
+        sidebarCloseBtn?.focus();
+    } else if (document.activeElement && sidebar?.contains(document.activeElement)) {
+        sidebarToggleBtn?.focus();
+    }
 }
 
 function openSidebar(persist = true) {
@@ -571,10 +635,8 @@ function toggleSidebar() {
 }
 
 function initSidebar() {
-    try {
-        const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-        setSidebarOpen(stored === '1', false);
-    } catch (e) {}
+    const stored = getStoredValue(SIDEBAR_STORAGE_KEY);
+    setSidebarOpen(stored === '1', false);
     if (sidebarBackdrop && sidebarBackdrop.hidden === false && !document.body.classList.contains('sidebar-open')) {
         sidebarBackdrop.hidden = true;
     }
@@ -1044,16 +1106,28 @@ function downloadUtilityFile() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function base64UrlDecode(value) {
     const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
     const padded = normalized + '='.repeat((4 - (normalized.length % 4 || 4)) % 4);
     try {
-        return decodeURIComponent(escape(atob(padded)));
+        const binary = typeof atob === 'function'
+            ? atob(padded)
+            : (typeof Buffer !== 'undefined' ? Buffer.from(padded, 'base64').toString('binary') : '');
+        if (binary === '') {
+            throw new Error('Base64 decode is not supported in this environment');
+        }
+        return decodeURIComponent(escape(binary));
     } catch (e) {
-        return atob(padded);
+        if (typeof atob === 'function') {
+            return atob(padded);
+        }
+        if (typeof Buffer !== 'undefined') {
+            return Buffer.from(padded, 'base64').toString('utf8');
+        }
+        throw e;
     }
 }
 
@@ -1288,11 +1362,19 @@ function renderRegexStatus(result) {
     regexMatchDetails.textContent = next.details;
 }
 
+function scheduleRegexStatusRender() {
+    if (pendingRegexStatusFrame) return;
+    pendingRegexStatusFrame = requestUiFrame(() => {
+        pendingRegexStatusFrame = 0;
+        renderRegexStatus();
+    });
+}
+
 function handleRegexConfigChange() {
     regexPattern = regexPatternInput ? regexPatternInput.value : '';
     regexFlags = regexFlagsInput ? regexFlagsInput.value : '';
     if (currentTool === 'regex') {
-        renderRegexStatus();
+        scheduleRegexStatusRender();
     }
 }
 
@@ -1404,14 +1486,26 @@ function highlightInputErrorPosition(line, column) {
 }
 
 function displayOutput(formatted) {
+    const signature = `${currentTool}\u0000${formatted}`;
+    if (renderedOutputSignature === signature) {
+        toolOutputCache[currentTool] = formatted.length <= MAX_CACHED_OUTPUT_CHARS ? formatted : '';
+        return;
+    }
+
     const lines = formatted.split('\n');
+    const shouldHighlight = (
+        (currentTool === 'json' || currentTool === 'yaml')
+        && lines.length <= MAX_HIGHLIGHT_OUTPUT_LINES
+        && formatted.length <= MAX_HIGHLIGHT_OUTPUT_CHARS
+    );
     const html = [];
     for (let i = 0; i < lines.length; i++) {
         html.push(
-            `<div class="output-line"><div class="output-line-numbers">${i + 1}</div><div class="output-content">${highlightLine(lines[i])}</div></div>`
+            `<div class="output-line"><div class="output-line-numbers">${i + 1}</div><div class="output-content">${shouldHighlight ? highlightLine(lines[i]) : escapeHtml(lines[i])}</div></div>`
         );
     }
     outputContent.innerHTML = html.join('');
+    renderedOutputSignature = signature;
     toolOutputCache[currentTool] = formatted.length <= MAX_CACHED_OUTPUT_CHARS ? formatted : '';
 }
 
@@ -1448,15 +1542,82 @@ function clearAll() {
     }
     clearInputErrorMarker();
     updateLineNumbers();
-    outputContent.innerHTML = '';
+    clearOutputDisplay();
     errorMessage.classList.remove('show');
 }
 
-function copyOutput() {
+function setCopyButtonState(label, statusMessage = '', isError = false) {
+    if (copyOutputText) {
+        copyOutputText.textContent = label;
+    }
+    if (copyBtn) {
+        copyBtn.classList.toggle('is-success', !isError && label !== 'Copy');
+        copyBtn.classList.toggle('is-error', Boolean(isError));
+    }
+    if (copyStatus) {
+        copyStatus.textContent = statusMessage;
+    }
+}
+
+function showCopyFeedback(label, statusMessage, isError = false) {
+    if (copyFeedbackTimeout) {
+        clearTimeout(copyFeedbackTimeout);
+    }
+    setCopyButtonState(label, statusMessage, isError);
+    copyFeedbackTimeout = setTimeout(() => {
+        copyFeedbackTimeout = 0;
+        setCopyButtonState('Copy', '');
+    }, COPY_FEEDBACK_DURATION_MS);
+}
+
+function fallbackCopyText(text) {
+    if (!document.createElement || !document.body || typeof document.execCommand !== 'function') {
+        throw new Error('Clipboard API unavailable');
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    try {
+        if (!document.execCommand('copy')) {
+            throw new Error('Copy command was rejected');
+        }
+    } finally {
+        document.body.removeChild(textarea);
+    }
+}
+
+async function copyOutput() {
     const text = toolOutputCache[currentTool] || outputContent.textContent;
-    navigator.clipboard.writeText(text).then(() => {
-        alert('Copied to clipboard!');
-    });
+    if (!text) {
+        showCopyFeedback('Empty', 'There is no output to copy.', true);
+        return;
+    }
+
+    try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(text);
+        } else {
+            fallbackCopyText(text);
+        }
+        showCopyFeedback('Copied', 'Output copied to clipboard.');
+    } catch (e) {
+        try {
+            fallbackCopyText(text);
+            showCopyFeedback('Copied', 'Output copied to clipboard.');
+        } catch (fallbackError) {
+            showSimpleError('Could not copy output to clipboard');
+            showCopyFeedback('Failed', 'Output could not be copied to clipboard.', true);
+        }
+    }
 }
 
 function autoFix() {
@@ -2411,7 +2572,7 @@ function applyResizerPosition(clientX) {
 function queueResize(clientX) {
     pendingResizeClientX = clientX;
     if (pendingResizeFrame) return;
-    pendingResizeFrame = window.requestAnimationFrame(() => {
+    pendingResizeFrame = requestUiFrame(() => {
         pendingResizeFrame = 0;
         if (pendingResizeClientX !== null) {
             applyResizerPosition(pendingResizeClientX);
@@ -2424,7 +2585,7 @@ function stopResizing() {
     isResizing = false;
     pendingResizeClientX = null;
     if (pendingResizeFrame) {
-        window.cancelAnimationFrame(pendingResizeFrame);
+        cancelUiFrame(pendingResizeFrame);
         pendingResizeFrame = 0;
     }
     resizer?.classList.remove('resizing');

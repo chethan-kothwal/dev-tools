@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Format, validate, and inspect JSON, YAML, JWTs, cron expressions, timestamps, Base64, hex, and regex input in one fast browser tool.">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="color-scheme" content="light dark">
     <title>Dev Tools - Formatter & Auto-Fix</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,10 +25,10 @@
         </div>
     </header>
 
-    <div class="tool-picker" id="toolPicker">
+    <div class="tool-picker" id="toolPicker" role="dialog" aria-modal="true" aria-labelledby="toolPickerTitle" aria-describedby="toolPickerSubtitle">
         <div class="tool-picker-card">
-            <div class="tool-picker-title">Choose your tool</div>
-            <p class="tool-picker-subtitle">This is shown on your first visit. You can switch anytime from the tools drawer in the header.</p>
+            <div class="tool-picker-title" id="toolPickerTitle">Choose your tool</div>
+            <p class="tool-picker-subtitle" id="toolPickerSubtitle">This is shown on your first visit. You can switch anytime from the tools drawer in the header.</p>
             <div class="tool-picker-options">
                 <button class="tool-choice" data-tool="json">
                     <strong>JSON Formatter</strong>
@@ -86,7 +89,7 @@
         </aside>
 
         <div class="workspace">
-            <div class="error-message" id="errorMessage">
+            <div class="error-message" id="errorMessage" role="alert" aria-live="assertive">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8z"/><path d="M7.25 5a.75.75 0 011.5 0V8a.75.75 0 01-1.5 0V5zM8 11a1 1 0 100-2 1 1 0 000 2z"/></svg>
                     <strong>Error:</strong> <span id="errorText"></span>
@@ -100,7 +103,7 @@
                         <section class="cron-card">
                             <div class="cron-label">Expression (5 Fields)</div>
                             <div class="cron-input-row">
-                                <input id="cronExpressionInput" class="cron-expression-input" type="text" placeholder="0 9 * * 1-5" spellcheck="false" />
+                                <input id="cronExpressionInput" class="cron-expression-input" type="text" placeholder="0 9 * * 1-5" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" />
                                 <button class="cron-parse-btn" id="cronParseBtn" type="button">Parse</button>
                             </div>
                             <div class="cron-field-chips" id="cronFieldChips">
@@ -183,23 +186,23 @@
                     <div class="regex-controls" id="regexControls">
                         <label class="regex-control">
                             <span>Regex Input</span>
-                            <input id="regexPatternInput" type="text" placeholder="Example: ^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" spellcheck="false" />
+                            <input id="regexPatternInput" type="text" placeholder="Example: ^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" />
                         </label>
                         <label class="regex-control regex-flags-control">
                             <span>Flags</span>
-                            <input id="regexFlagsInput" type="text" placeholder="gim" spellcheck="false" />
+                            <input id="regexFlagsInput" type="text" placeholder="gim" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" />
                         </label>
                     </div>
                     <div class="editor-wrapper">
                         <div class="line-numbers" id="inputLineNumbers">1</div>
-                        <textarea id="inputJson" placeholder="Paste your data here..." spellcheck="false"></textarea>
+                        <textarea id="inputJson" placeholder="Paste your data here..." spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-labelledby="inputPanelTitle"></textarea>
                     </div>
                     <div class="regex-match-panel" id="regexMatchPanel">
                         <section class="regex-section">
                             <div class="regex-section-title">Match Result</div>
                             <div class="regex-status-card" id="regexStatusCard">
                                 <div class="regex-status-badge" id="regexMatchBadge">Waiting for input</div>
-                                <div class="regex-status-text" id="regexMatchSummary">Add a regex expression and a test string, then click Test.</div>
+                                <div class="regex-status-text" id="regexMatchSummary" aria-live="polite">Add a regex expression and a test string, then click Test.</div>
                                 <pre class="regex-status-details" id="regexMatchDetails">Matches and capture groups will appear here.</pre>
                             </div>
                         </section>
@@ -216,8 +219,9 @@
                         <span class="panel-title" id="outputPanelTitle">Output</span>
                         <button class="btn btn-secondary" id="copyOutputBtn" type="button">
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>
-                            Copy
+                            <span id="copyOutputText">Copy</span>
                         </button>
+                        <span class="sr-only" id="copyStatus" aria-live="polite"></span>
                     </div>
                     <div class="regex-workspace" id="regexWorkspace">
                         <section class="regex-section">
@@ -278,7 +282,7 @@
                         </section>
                     </div>
                     <div class="editor-wrapper">
-                        <div class="output-area" id="outputArea">
+                        <div class="output-area" id="outputArea" role="region" aria-labelledby="outputPanelTitle">
                             <div id="outputContent"></div>
                         </div>
                     </div>

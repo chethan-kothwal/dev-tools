@@ -1,4 +1,5 @@
 :root {
+    color-scheme: light;
     --bg-main: #ffffff;
     --bg-contrast: #f5f6f8;
     --bg-panel: #ffffff;
@@ -19,6 +20,7 @@
 }
 
 [data-theme="dark"] {
+    color-scheme: dark;
     --bg-main: #0f0f10;
     --bg-contrast: #151516;
     --bg-panel: #18181b;
@@ -48,12 +50,27 @@ body {
     font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
     background: var(--bg-main);
     color: var(--text-main);
+    min-height: 100vh;
+    min-height: 100dvh;
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     padding: 8px;
     overflow: hidden;
     position: relative;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 body::before,
@@ -177,6 +194,22 @@ h1 {
 .theme-btn:hover {
     transform: translateY(-1px);
     border-color: #d1d5db;
+}
+
+.tool-drawer-btn:focus-visible,
+.theme-btn:focus-visible,
+.sidebar-close-btn:focus-visible,
+.sidebar-tool:focus-visible,
+.cron-parse-btn:focus-visible,
+.btn:focus-visible,
+.tool-choice:focus-visible,
+.cron-example-chip:focus-visible,
+.utility-control select:focus-visible,
+.regex-control input:focus-visible,
+.cron-expression-input:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 .sidebar {
@@ -788,6 +821,24 @@ body.sidebar-open .sidebar-backdrop {
     border-color: #d1d5db;
 }
 
+.btn.is-success {
+    border-color: rgba(22, 163, 74, 0.35);
+    color: #166534;
+}
+
+.btn.is-error {
+    border-color: rgba(220, 38, 38, 0.35);
+    color: #991b1b;
+}
+
+[data-theme="dark"] .btn.is-success {
+    color: #86efac;
+}
+
+[data-theme="dark"] .btn.is-error {
+    color: #fca5a5;
+}
+
 .editor-wrapper {
     flex: 1;
     display: flex;
@@ -972,6 +1023,14 @@ textarea {
 
 .regex-workspace.show {
     display: flex;
+}
+
+.sidebar-content,
+.cron-workspace,
+.regex-workspace,
+.output-area {
+    content-visibility: auto;
+    contain-intrinsic-size: 600px;
 }
 
 .regex-section {
@@ -1242,7 +1301,7 @@ textarea {
 @media (max-width: 760px) {
     body {
         height: auto;
-        min-height: 100vh;
+        min-height: 100dvh;
         overflow: auto;
     }
 
@@ -1341,3 +1400,15 @@ textarea {
     .resizer {
         display: none;
     }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}
