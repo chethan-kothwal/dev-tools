@@ -39,6 +39,32 @@ class FakeElement {
     this.offsetWidth = 8;
     this.style = {};
     this.classList = new FakeClassList();
+    this._children = [];
+  }
+
+  get children() {
+    return this._children;
+  }
+
+  get childElementCount() {
+    return this._children.length;
+  }
+
+  get lastChild() {
+    return this._children[this._children.length - 1] || null;
+  }
+
+  appendChild(child) {
+    child.parentNode = this;
+    this._children.push(child);
+    return child;
+  }
+
+  remove() {
+    if (!this.parentNode) return;
+    const idx = this.parentNode._children.indexOf(this);
+    if (idx >= 0) this.parentNode._children.splice(idx, 1);
+    this.parentNode = null;
   }
 
   addEventListener() {}
@@ -72,6 +98,9 @@ function loadApp() {
     },
     querySelectorAll() {
       return [];
+    },
+    createElement() {
+      return new FakeElement();
     },
     addEventListener() {},
     documentElement: { setAttribute() {} },

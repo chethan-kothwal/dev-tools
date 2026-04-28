@@ -218,11 +218,7 @@ if (utilModeSelect && !utilModeSelect.value) {
 
 function countLines(text) {
     if (!text) return 1;
-    let lines = 1;
-    for (let i = 0; i < text.length; i++) {
-        if (text.charCodeAt(i) === 10) lines++;
-    }
-    return lines;
+    return text.split('\n').length;
 }
 
 function handleInputChange() {
@@ -264,20 +260,29 @@ function updateLineNumbers() {
         return;
     }
 
-    const html = [];
-    for (let i = 1; i <= lines; i++) {
-        const isErrorLine = inputErrorState && inputErrorState.line === i;
-        html.push(`<span class="line-number ${isErrorLine ? 'line-number-error' : ''}">${i}</span>`);
+    const children = inputLineNumbers.children;
+    for (let i = 0; i < lines; i++) {
+        let span = children[i];
+        if (!span) {
+            span = document.createElement('span');
+            span.className = 'line-number';
+            inputLineNumbers.appendChild(span);
+        }
+        const isError = inputErrorState && inputErrorState.line === i + 1;
+        span.classList.toggle('line-number-error', isError);
+        if (span.textContent !== String(i + 1)) {
+            span.textContent = i + 1;
+        }
     }
-    inputLineNumbers.innerHTML = html.join('');
+    while (inputLineNumbers.childElementCount > lines) {
+        inputLineNumbers.lastChild.remove();
+    }
     renderedErrorLine = errorLine;
 }
 
+const _htmlEscapes = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
 function escapeHtml(text) {
-    return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+    return String(text).replace(/[&<>]/g, ch => _htmlEscapes[ch]);
 }
 
 function syncScroll() {
@@ -891,26 +896,41 @@ function base64ToBytes(input) {
     return out;
 }
 
+const _byteToHex = new Array(256);
+for (let i = 0; i < 256; i++) {
+    _byteToHex[i] = i.toString(16).padStart(2, '0');
+}
+
 function bytesToHex(bytes) {
-    let out = '';
-    for (let i = 0; i < bytes.length; i++) {
-        out += bytes[i].toString(16).padStart(2, '0');
+    const len = bytes.length;
+    const out = new Array(len);
+    for (let i = 0; i < len; i++) {
+        out[i] = _byteToHex[bytes[i]];
     }
-    return out;
+    return out.join('');
+}
+
+function hexCharCodeToVal(cc) {
+    if (cc >= 48 && cc <= 57) return cc - 48;
+    if (cc >= 97 && cc <= 102) return cc - 97 + 10;
+    if (cc >= 65 && cc <= 70) return cc - 65 + 10;
+    return -1;
 }
 
 function hexToBytes(input) {
     const cleaned = String(input || '').replace(/\s+/g, '').replace(/^0x/i, '');
     if (!cleaned) throw new Error('Hex input is empty');
-    if (!/^[0-9a-fA-F]+$/.test(cleaned)) {
-        throw new Error('Hex input contains non-hex characters');
-    }
     if (cleaned.length % 2 !== 0) {
         throw new Error('Hex input must have an even number of characters');
     }
     const out = new Uint8Array(cleaned.length / 2);
     for (let i = 0; i < cleaned.length; i += 2) {
-        out[i / 2] = parseInt(cleaned.slice(i, i + 2), 16);
+        const hi = hexCharCodeToVal(cleaned.charCodeAt(i));
+        const lo = hexCharCodeToVal(cleaned.charCodeAt(i + 1));
+        if (hi < 0 || lo < 0) {
+            throw new Error('Hex input contains non-hex characters');
+        }
+        out[i / 2] = (hi << 4) | lo;
     }
     return out;
 }
@@ -1215,13 +1235,41 @@ function getNextCronRuns(schedule, fromDate, count) {
     cursor.setSeconds(0, 0);
     cursor.setMinutes(cursor.getMinutes() + 1);
 
+    const minuteHas = new Uint8Array(60);
+    for (const v of schedule.minute) minuteHas[v] = 1;
+    const hourHas = new Uint8Array(24);
+    for (const v of schedule.hour) hourHas[v] = 1;
+    const domHas = new Uint8Array(32);
+    for (const v of schedule.dayOfMonth) domHas[v] = 1;
+    const monthHas = new Uint8Array(13);
+    for (const v of schedule.month) monthHas[v] = 1;
+    const dowHas = new Uint8Array(7);
+    for (const v of schedule.dayOfWeek) dowHas[v] = 1;
+
     const maxIterations = 525600; // 1 year in minutes
     let iterations = 0;
     while (runs.length < count && iterations < maxIterations) {
-        if (cronMatches(schedule, cursor)) {
+        const minute = cursor.getMinutes();
+        if (!minuteHas[minute]) {
+            cursor.setMinutes(minute + 1);
+            iterations++;
+            continue;
+        }
+        const hour = cursor.getHours();
+        if (!hourHas[hour]) {
+            cursor.setMinutes(0);
+            cursor.setHours(hour + 1);
+            iterations += (60 - minute);
+            continue;
+        }
+        if (
+            domHas[cursor.getDate()] &&
+            monthHas[cursor.getMonth() + 1] &&
+            dowHas[cursor.getDay()]
+        ) {
             runs.push(new Date(cursor.getTime()));
         }
-        cursor.setMinutes(cursor.getMinutes() + 1);
+        cursor.setMinutes(minute + 1);
         iterations++;
     }
     return runs;
@@ -1315,12 +1363,25 @@ function buildRegexMatchResult(pattern, flags, input) {
 
     const regex = new RegExp(safePattern, safeFlags);
     const matcherFlags = regex.flags.includes('g') ? regex.flags : `${regex.flags}g`;
-    const matches = Array.from(safeInput.matchAll(new RegExp(regex.source, matcherFlags))).map((match) => ({
-        match: match[0],
-        index: match.index ?? 0,
-        groups: match.slice(1)
-    }));
-    const isMatch = matches.length > 0 || regex.test(safeInput);
+    const matcher = new RegExp(regex.source, matcherFlags);
+
+    const matches = [];
+    let isMatch = false;
+    const maxMatches = 100;
+    let match;
+
+    while ((match = matcher.exec(safeInput)) !== null) {
+        isMatch = true;
+        if (matches.length < maxMatches) {
+            matches.push({
+                match: match[0],
+                index: match.index ?? 0,
+                groups: match.slice(1)
+            });
+        }
+        if (!matcher.global) break;
+        if (match.index === matcher.lastIndex) matcher.lastIndex++;
+    }
 
     return {
         state: isMatch ? 'match' : 'no-match',
@@ -1493,18 +1554,24 @@ function displayOutput(formatted) {
     }
 
     const lines = formatted.split('\n');
-    const shouldHighlight = (
-        (currentTool === 'json' || currentTool === 'yaml')
-        && lines.length <= MAX_HIGHLIGHT_OUTPUT_LINES
-        && formatted.length <= MAX_HIGHLIGHT_OUTPUT_CHARS
-    );
-    const html = [];
-    for (let i = 0; i < lines.length; i++) {
-        html.push(
-            `<div class="output-line"><div class="output-line-numbers">${i + 1}</div><div class="output-content">${shouldHighlight ? highlightLine(lines[i]) : escapeHtml(lines[i])}</div></div>`
-        );
+    const isLarge = lines.length > MAX_HIGHLIGHT_OUTPUT_LINES || formatted.length > MAX_HIGHLIGHT_OUTPUT_CHARS;
+
+    if (isLarge) {
+        outputContent.innerHTML = `<pre style="margin:0;padding:10px 12px 10px 42px;white-space:pre;word-break:normal;overflow-wrap:normal;font-family:inherit;line-height:inherit;tab-size:2;">${escapeHtml(formatted)}</pre>`;
+        renderedOutputSignature = signature;
+        toolOutputCache[currentTool] = formatted.length <= MAX_CACHED_OUTPUT_CHARS ? formatted : '';
+        return;
     }
-    outputContent.innerHTML = html.join('');
+
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < lines.length; i++) {
+        const lineDiv = document.createElement('div');
+        lineDiv.className = 'output-line';
+        lineDiv.innerHTML = `<div class="output-line-numbers">${i + 1}</div><div class="output-content">${highlightLine(lines[i])}</div>`;
+        frag.appendChild(lineDiv);
+    }
+    outputContent.innerHTML = '';
+    outputContent.appendChild(frag);
     renderedOutputSignature = signature;
     toolOutputCache[currentTool] = formatted.length <= MAX_CACHED_OUTPUT_CHARS ? formatted : '';
 }
@@ -1955,8 +2022,7 @@ function normalizeJsonInput(text) {
 function fixSmartQuotes(text) {
     return text
         .replace(/[\u201C\u201D]/g, '"')
-        .replace(/[\u2018\u2019]/g, "'")
-        .replace(/[\u0060]/g, "'");
+        .replace(/[\u2018\u2019\u0060]/g, "'");
 }
 
 function fixJsonControlCharsInStrings(text) {

@@ -1400,6 +1400,14 @@ textarea {
     .resizer {
         display: none;
     }
+
+    .sidebar,
+    .cron-card,
+    .cron-results,
+    .panel,
+    .regex-section {
+        backdrop-filter: none;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
