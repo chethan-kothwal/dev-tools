@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "vendor": "node scripts/vendor.js",
+    "build": "node scripts/build.js",
+    "prepare": "node scripts/vendor.js",
     "test": "node --test test/tools.test.js"
   },
-  "dependencies": {
+  "devDependencies": {
+    "esbuild": "^0.25.0",
     "js-yaml": "^4.1.0"
   }
 }

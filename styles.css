@@ -47,7 +47,7 @@
 }
 
 body {
-    font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
     background: var(--bg-main);
     color: var(--text-main);
     min-height: 100vh;
@@ -466,7 +466,7 @@ body.sidebar-open .sidebar-backdrop {
     color: var(--text-main);
     border-radius: 6px;
     padding: 10px 12px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 14px;
     line-height: 1.5;
     outline: none;
@@ -515,7 +515,7 @@ body.sidebar-open .sidebar-backdrop {
     color: var(--text-muted);
     font-size: 12px;
     border: 1px solid var(--border);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
 }
 
 .cron-field-chip.is-filled {
@@ -549,7 +549,7 @@ body.sidebar-open .sidebar-backdrop {
 }
 
 .cron-example-chip code {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 13px;
     color: var(--text-main);
 }
@@ -608,7 +608,7 @@ body.sidebar-open .sidebar-backdrop {
 }
 
 .cron-run-main {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 14px;
     line-height: 1.5;
     font-weight: 500;
@@ -616,7 +616,7 @@ body.sidebar-open .sidebar-backdrop {
 }
 
 .cron-run-secondary {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 13px;
     line-height: 1.5;
     color: var(--text-muted);
@@ -760,7 +760,7 @@ body.sidebar-open .sidebar-backdrop {
     border-radius: 8px;
     font-size: 13px;
     padding: 10px 12px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
     outline: none;
 }
 
@@ -866,7 +866,7 @@ body.sidebar-open .sidebar-backdrop {
     color: var(--gutter-text);
     padding: 12px 5px;
     text-align: right;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 13px;
     line-height: 1.5;
     user-select: none;
@@ -893,7 +893,7 @@ textarea {
     color: var(--text-main);
     border: none;
     padding: 10px 12px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 14px;
     line-height: 1.5;
     resize: none;
@@ -907,7 +907,7 @@ textarea {
 .input-error-inline {
     display: none;
     padding: 8px 12px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 12px;
     white-space: pre-wrap;
     color: #5b1f00;
@@ -932,7 +932,7 @@ textarea {
 .output-area {
     flex: 1;
     background: var(--bg-input);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 14px;
     line-height: 1.5;
     overflow: auto;
@@ -1102,11 +1102,6 @@ textarea {
     color: var(--text-main);
 }
 
-.regex-status-details,
-.regex-readme code {
-    font-family: 'IBM Plex Mono', monospace;
-}
-
 .regex-status-details {
     white-space: pre-wrap;
     background: rgba(148, 163, 184, 0.08);
@@ -1142,6 +1137,7 @@ textarea {
 }
 
 .regex-readme code {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
     background: rgba(148, 163, 184, 0.12);
     border-radius: 6px;
     padding: 2px 5px;

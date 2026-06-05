@@ -1,0 +1,51 @@
+<p><strong>What regex does:</strong> A regex is a pattern that checks whether text follows a rule. You write the rule once, then test a string against it.</p>
+<div class="regex-readme-block">
+    <div class="regex-readme-heading">How to build one</div>
+    <p>Start with the exact text you want. Then replace the changing parts step by step.</p>
+    <p><strong>Example goal:</strong> Match dates like <code>2026-03-14</code>.</p>
+    <p><strong>Step 1:</strong> Start with the shape: <code>0000-00-00</code></p>
+    <p><strong>Step 2:</strong> Replace each number with a digit token: <code>\d\d\d\d-\d\d-\d\d</code></p>
+    <p><strong>Step 3:</strong> Shorten repeated parts with counts: <code>\d{4}-\d{2}-\d{2}</code></p>
+    <p><strong>Step 4:</strong> Force the whole string to match: <code>^\d{4}-\d{2}-\d{2}$</code></p>
+</div>
+<div class="regex-readme-block">
+    <div class="regex-readme-heading">Common building blocks</div>
+    <p><code>\d</code> any digit like <code>0</code> to <code>9</code></p>
+    <p><code>\w</code> word character like a letter, number, or underscore</p>
+    <p><code>\s</code> whitespace like a space or tab</p>
+    <p><code>.</code> any single character</p>
+    <p><code>[abc]</code> one character from the list</p>
+    <p><code>[a-z]</code> one lowercase letter from <code>a</code> to <code>z</code></p>
+    <p><code>[^abc]</code> one character that is not in the list</p>
+</div>
+<div class="regex-readme-block">
+    <div class="regex-readme-heading">How repetition works</div>
+    <p><code>*</code> zero or more times</p>
+    <p><code>+</code> one or more times</p>
+    <p><code>?</code> zero or one time</p>
+    <p><code>{3}</code> exactly 3 times</p>
+    <p><code>{2,5}</code> between 2 and 5 times</p>
+</div>
+<div class="regex-readme-block">
+    <div class="regex-readme-heading">Important symbols</div>
+    <p><code>^</code> start of the string</p>
+    <p><code>$</code> end of the string</p>
+    <p><code>(...)</code> capture a part of the match</p>
+    <p><code>(?:...)</code> group without capturing</p>
+    <p><code>|</code> OR, for example <code>cat|dog</code></p>
+</div>
+<div class="regex-readme-block">
+    <div class="regex-readme-heading">Easy examples</div>
+    <p><strong>4 digits only:</strong> <code>^\d{4}$</code></p>
+    <p><strong>Date:</strong> <code>^\d{4}-\d{2}-\d{2}$</code></p>
+    <p><strong>Email:</strong> <code>^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$</code></p>
+    <p><strong>Starts with "cat":</strong> <code>^cat</code></p>
+    <p><strong>Contains only lowercase letters:</strong> <code>^[a-z]+$</code></p>
+</div>
+<div class="regex-readme-block">
+    <div class="regex-readme-heading">Flags</div>
+    <p><code>i</code> ignore uppercase vs lowercase</p>
+    <p><code>g</code> find all matches, not just the first one</p>
+    <p><code>m</code> let <code>^</code> and <code>$</code> work line by line</p>
+</div>
+<p><strong>Beginner tip:</strong> If your regex feels confusing, build the smallest piece that works first, test it, and only then add more rules.</p>

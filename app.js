@@ -41,6 +41,7 @@ const regexControls = document.getElementById('regexControls');
 const regexPatternInput = document.getElementById('regexPatternInput');
 const regexFlagsInput = document.getElementById('regexFlagsInput');
 const regexWorkspace = document.getElementById('regexWorkspace');
+const regexReadme = document.getElementById('regexReadme');
 const regexMatchPanel = document.getElementById('regexMatchPanel');
 const regexMatchBadge = document.getElementById('regexMatchBadge');
 const regexMatchSummary = document.getElementById('regexMatchSummary');
@@ -123,6 +124,73 @@ const requestUiFrame = typeof window !== 'undefined' && typeof window.requestAni
 const cancelUiFrame = typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function'
     ? window.cancelAnimationFrame.bind(window)
     : clearTimeout;
+
+let yamlLibraryPromise = null;
+let regexReadmePromise = null;
+
+function loadYamlLibrary() {
+    if (typeof jsyaml !== 'undefined') {
+        return Promise.resolve();
+    }
+    if (yamlLibraryPromise) {
+        return yamlLibraryPromise;
+    }
+
+    yamlLibraryPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'vendor/js-yaml.min.js';
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => {
+            yamlLibraryPromise = null;
+            reject(new Error('Failed to load YAML parser'));
+        };
+        document.head.appendChild(script);
+    });
+
+    return yamlLibraryPromise;
+}
+
+function ensureRegexReadme() {
+    if (!regexReadme || regexReadme.dataset.loaded === 'true') {
+        return Promise.resolve();
+    }
+    if (regexReadmePromise) {
+        return regexReadmePromise;
+    }
+
+    regexReadmePromise = fetch('regex-readme.html')
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Failed to load regex help');
+            }
+            return response.text();
+        })
+        .then((html) => {
+            regexReadme.innerHTML = html;
+            regexReadme.dataset.loaded = 'true';
+            regexReadme.removeAttribute('aria-busy');
+        })
+        .catch(() => {
+            regexReadme.innerHTML = '<p>Regex help could not be loaded.</p>';
+            regexReadme.dataset.loaded = 'true';
+            regexReadme.removeAttribute('aria-busy');
+        })
+        .finally(() => {
+            regexReadmePromise = null;
+        });
+
+    return regexReadmePromise;
+}
+
+function preloadToolAssets(tool) {
+    if (tool === 'yaml') {
+        loadYamlLibrary().catch(() => {});
+    }
+    if (tool === 'regex') {
+        ensureRegexReadme().catch(() => {});
+    }
+}
 
 const TOOL_CONFIG = {
     json: {
@@ -448,6 +516,9 @@ function updateRegexControlsVisibility() {
     if (copyBtn) {
         copyBtn.style.display = isRegex ? 'none' : 'inline-flex';
     }
+    if (isRegex) {
+        ensureRegexReadme().catch(() => {});
+    }
 }
 
 function updateCronWorkspaceVisibility() {
@@ -539,6 +610,7 @@ function setTool(tool, persist = true) {
     restoreToolOutput(currentTool);
     restoreToolError(currentTool);
     updateLineNumbers();
+    preloadToolAssets(currentTool);
 }
 
 function chooseTool(tool) {
@@ -647,8 +719,16 @@ function initSidebar() {
     }
 }
 
-function formatCurrent() {
-    if (currentTool === 'yaml') return formatYaml();
+async function formatCurrent() {
+    if (currentTool === 'yaml') {
+        try {
+            await loadYamlLibrary();
+        } catch {
+            showSimpleError('YAML parser failed to load. Please refresh the page.');
+            return;
+        }
+        return formatYaml();
+    }
     if (currentTool === 'jwt') return decodeJwt();
     if (currentTool === 'cron') return analyzeCron();
     if (currentTool === 'timestamp') return convertTimestamp();
@@ -1687,8 +1767,16 @@ async function copyOutput() {
     }
 }
 
-function autoFix() {
-    if (currentTool === 'yaml') return autoFixYaml();
+async function autoFix() {
+    if (currentTool === 'yaml') {
+        try {
+            await loadYamlLibrary();
+        } catch {
+            showSimpleError('YAML parser failed to load. Please refresh the page.');
+            return;
+        }
+        return autoFixYaml();
+    }
     if (currentTool === 'json') return autoFixJson();
     return;
 }
