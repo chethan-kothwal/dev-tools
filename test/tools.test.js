@@ -309,23 +309,33 @@ test('Regex: buildRegexMatchResult reports matches and capture groups', () => {
   const result = api.buildRegexMatchResult('(foo)-(bar)', 'g', 'foo-bar and foo-bar');
   assert.equal(result.isMatch, true);
   assert.equal(result.state, 'match');
-  assert.match(result.summary, /matches this regex/i);
+  assert.match(result.summary, /Matched/i);
   assert.match(result.details, /Found 2 matches/);
-  assert.match(result.details, /Groups: "foo", "bar"/);
+  assert.match(result.details, /Captured groups: \$1="foo", \$2="bar"/);
 });
 
 test('Regex: buildRegexMatchResult reports no-match state', () => {
   const result = api.buildRegexMatchResult('^cat$', 'i', 'dog');
   assert.equal(result.isMatch, false);
   assert.equal(result.state, 'no-match');
-  assert.match(result.summary, /does not match/i);
+  assert.match(result.summary, /No match/i);
 });
 
 test('Regex: buildRegexMatchResult returns idle state when pattern is missing', () => {
   const result = api.buildRegexMatchResult('', '', 'anything');
   assert.equal(result.isMatch, false);
   assert.equal(result.state, 'idle');
-  assert.match(result.summary, /Add a regex expression/i);
+  assert.match(result.summary, /Type a pattern/i);
+});
+
+test('Regex: buildRegexMatchResult rejects unsupported flags', () => {
+  assert.throws(() => api.buildRegexMatchResult('cat', 'z', 'cat'), /Unsupported flag/);
+});
+
+test('Regex: buildRegexMatchResult ignores spaces in flags', () => {
+  const result = api.buildRegexMatchResult('CAT', 'i g', 'cat and CAT');
+  assert.equal(result.isMatch, true);
+  assert.match(result.details, /Found 2 matches/);
 });
 
 test('Line/Column helper: lineColumnToIndex maps correctly', () => {

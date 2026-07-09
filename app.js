@@ -224,6 +224,7 @@ function ensureRegexReadme() {
             regexReadme.innerHTML = html;
             regexReadme.dataset.loaded = 'true';
             regexReadme.removeAttribute('aria-busy');
+            bindRegexTryButtons();
         })
         .catch(() => {
             regexReadme.innerHTML = '<p>Regex help could not be loaded.</p>';
@@ -235,6 +236,39 @@ function ensureRegexReadme() {
         });
 
     return regexReadmePromise;
+}
+
+function bindRegexTryButtons() {
+    if (!regexReadme) return;
+    regexReadme.querySelectorAll('.regex-try-btn').forEach((button) => {
+        if (button.dataset.bound === 'true') return;
+        button.dataset.bound = 'true';
+        button.addEventListener('click', () => {
+            applyRegexExample(
+                button.getAttribute('data-pattern') || '',
+                button.getAttribute('data-flags') || '',
+                button.getAttribute('data-input') || ''
+            );
+        });
+    });
+}
+
+function applyRegexExample(pattern, flags, input) {
+    if (currentTool !== 'regex') {
+        setTool('regex', true);
+    }
+    regexPattern = String(pattern || '');
+    regexFlags = String(flags || '');
+    if (regexPatternInput) regexPatternInput.value = regexPattern;
+    if (regexFlagsInput) regexFlagsInput.value = regexFlags;
+    if (inputJson) {
+        inputJson.value = String(input || '');
+        toolInputCache.regex = inputJson.value;
+        inputLineCount = countLines(inputJson.value);
+        updateLineNumbers();
+    }
+    clearToolError();
+    runRegexMatcher();
 }
 
 function preloadToolAssets(tool) {
@@ -302,13 +336,13 @@ const TOOL_CONFIG = {
         outputTitle: 'Utility Output'
     },
     regex: {
-        title: 'Regex Matcher (Beta)',
-        subtitle: 'Test regex expressions against strings and learn how to build them.',
-        placeholder: 'Enter the string you want to test against the regex...',
+        title: 'Regex Matcher',
+        subtitle: 'Test patterns against text and learn how to build them.',
+        placeholder: 'Paste the text you want to test against your pattern...',
         actionLabel: 'Test',
         showAutoFix: false,
-        inputTitle: 'Regex String',
-        outputTitle: 'Regex Results'
+        inputTitle: 'Test String',
+        outputTitle: 'Quick Guide'
     }
 };
 
@@ -705,7 +739,25 @@ function initToolChoice() {
 function applyTheme(theme, persist = true) {
     currentTheme = theme === 'dark' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', currentTheme);
-    themeToggleBtn.textContent = currentTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
+
+    const themeLabel = document.getElementById('themeToggleLabel');
+    if (themeLabel) {
+        themeLabel.textContent = currentTheme === 'dark' ? 'Light' : 'Dark';
+    } else if (themeToggleBtn) {
+        themeToggleBtn.textContent = currentTheme === 'dark' ? 'Light' : 'Dark';
+    }
+    if (themeToggleBtn) {
+        themeToggleBtn.setAttribute(
+            'aria-label',
+            currentTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+        );
+    }
+
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]:not([media])')
+        || document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) {
+        themeColorMeta.setAttribute('content', currentTheme === 'dark' ? '#07090c' : '#e8ecef');
+    }
 
     if (persist) {
         setStoredValue(THEME_STORAGE_KEY, currentTheme);
@@ -1479,33 +1531,53 @@ function parseJsonError(message, input) {
 
 function summarizeRegexMatches(matches) {
     if (!matches.length) {
-        return 'No matches found.';
+        return 'No matches found.\n\nTry a simpler pattern, or remove ^ and $ if you only need a partial match.';
     }
 
     const lines = [`Found ${matches.length} match${matches.length === 1 ? '' : 'es'}:`];
-    matches.slice(0, 5).forEach((match, index) => {
+    matches.slice(0, 8).forEach((match, index) => {
         lines.push(`${index + 1}. "${match.match}" at index ${match.index}`);
         if (match.groups.length) {
-            lines.push(`   Groups: ${match.groups.map((group) => `"${group}"`).join(', ')}`);
+            const named = match.groups
+                .map((group, groupIndex) => `$${groupIndex + 1}="${group}"`)
+                .join(', ');
+            lines.push(`   Captured groups: ${named}`);
         }
     });
-    if (matches.length > 5) {
-        lines.push(`...and ${matches.length - 5} more.`);
+    if (matches.length > 8) {
+        lines.push(`...and ${matches.length - 8} more.`);
     }
     return lines.join('\n');
 }
 
+function normalizeRegexFlags(flags) {
+    const cleaned = String(flags || '').replace(/\s+/g, '');
+    const allowed = new Set(['g', 'i', 'm', 's', 'u', 'y', 'd']);
+    const seen = new Set();
+    let normalized = '';
+    for (const ch of cleaned) {
+        const flag = ch.toLowerCase();
+        if (!allowed.has(flag)) {
+            throw new Error(`Unsupported flag "${ch}". Use letters like g, i, m.`);
+        }
+        if (seen.has(flag)) continue;
+        seen.add(flag);
+        normalized += flag;
+    }
+    return normalized;
+}
+
 function buildRegexMatchResult(pattern, flags, input) {
     const safePattern = String(pattern || '');
-    const safeFlags = String(flags || '').trim();
+    const safeFlags = normalizeRegexFlags(flags);
     const safeInput = String(input || '');
 
     if (!safePattern) {
         return {
             state: 'idle',
             isMatch: false,
-            summary: 'Add a regex expression and a test string, then click Test.',
-            details: 'Matches and capture groups will appear here.'
+            summary: 'Type a pattern above and a test string below. Results update as you type.',
+            details: 'Matches and captured groups will show up here.'
         };
     }
 
@@ -1531,10 +1603,13 @@ function buildRegexMatchResult(pattern, flags, input) {
         if (match.index === matcher.lastIndex) matcher.lastIndex++;
     }
 
+    const matchWord = matches.length === 1 ? 'match' : 'matches';
     return {
         state: isMatch ? 'match' : 'no-match',
         isMatch,
-        summary: isMatch ? 'The current string matches this regex.' : 'The current string does not match this regex.',
+        summary: isMatch
+            ? `Matched — found ${matches.length} ${matchWord} in the test string.`
+            : 'No match — this pattern did not find anything in the test string.',
         details: summarizeRegexMatches(matches)
     };
 }
@@ -1548,14 +1623,14 @@ function renderRegexStatus(result) {
             next = buildRegexMatchResult(regexPattern, regexFlags, inputJson.value);
         } catch (e) {
             next = {
-                state: 'idle',
+                state: 'error',
                 isMatch: false,
-                summary: 'The regex could not be evaluated.',
-                details: 'Fix the pattern or flags and try again.'
+                summary: 'Invalid pattern or flags.',
+                details: e && e.message ? e.message : 'Fix the pattern or flags and try again.'
             };
         }
     }
-    regexMatchBadge.classList.remove('is-match', 'is-no-match');
+    regexMatchBadge.classList.remove('is-match', 'is-no-match', 'is-error');
 
     if (next.state === 'match') {
         regexMatchBadge.textContent = 'Match';
@@ -1563,8 +1638,11 @@ function renderRegexStatus(result) {
     } else if (next.state === 'no-match') {
         regexMatchBadge.textContent = 'No Match';
         regexMatchBadge.classList.add('is-no-match');
+    } else if (next.state === 'error') {
+        regexMatchBadge.textContent = 'Error';
+        regexMatchBadge.classList.add('is-error');
     } else {
-        regexMatchBadge.textContent = 'Waiting for input';
+        regexMatchBadge.textContent = 'Waiting';
     }
 
     regexMatchSummary.textContent = next.summary;
@@ -1597,10 +1675,10 @@ function runRegexMatcher() {
         clearToolError();
     } catch (e) {
         renderRegexStatus({
-            state: 'idle',
+            state: 'error',
             isMatch: false,
-            summary: 'The regex could not be evaluated.',
-            details: 'Fix the pattern or flags and try again.'
+            summary: 'Invalid pattern or flags.',
+            details: e && e.message ? e.message : 'Fix the pattern or flags and try again.'
         });
         showSimpleError('Regex error: ' + e.message);
     }

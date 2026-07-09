@@ -1,51 +1,91 @@
-<p><strong>What regex does:</strong> A regex is a pattern that checks whether text follows a rule. You write the rule once, then test a string against it.</p>
-<div class="regex-readme-block">
-    <div class="regex-readme-heading">How to build one</div>
-    <p>Start with the exact text you want. Then replace the changing parts step by step.</p>
-    <p><strong>Example goal:</strong> Match dates like <code>2026-03-14</code>.</p>
-    <p><strong>Step 1:</strong> Start with the shape: <code>0000-00-00</code></p>
-    <p><strong>Step 2:</strong> Replace each number with a digit token: <code>\d\d\d\d-\d\d-\d\d</code></p>
-    <p><strong>Step 3:</strong> Shorten repeated parts with counts: <code>\d{4}-\d{2}-\d{2}</code></p>
-    <p><strong>Step 4:</strong> Force the whole string to match: <code>^\d{4}-\d{2}-\d{2}$</code></p>
+<div class="regex-guide-intro">
+    <p><strong>Regex</strong> (regular expression) is a short pattern that finds or checks text.</p>
+    <p>Use this tool in 3 steps:</p>
+    <ol class="regex-guide-steps">
+        <li>Type a <strong>pattern</strong> in the box above (the rule).</li>
+        <li>Paste a <strong>test string</strong> on the left (the text to check).</li>
+        <li>Watch the <strong>Match Result</strong> update as you type — or click <strong>Test</strong>.</li>
+    </ol>
 </div>
+
 <div class="regex-readme-block">
-    <div class="regex-readme-heading">Common building blocks</div>
-    <p><code>\d</code> any digit like <code>0</code> to <code>9</code></p>
-    <p><code>\w</code> word character like a letter, number, or underscore</p>
-    <p><code>\s</code> whitespace like a space or tab</p>
-    <p><code>.</code> any single character</p>
-    <p><code>[abc]</code> one character from the list</p>
-    <p><code>[a-z]</code> one lowercase letter from <code>a</code> to <code>z</code></p>
-    <p><code>[^abc]</code> one character that is not in the list</p>
+    <div class="regex-readme-heading">Try these first</div>
+    <p class="regex-guide-note">Click a button to load a working example. Then change the text or pattern and see what happens.</p>
+    <div class="regex-try-grid">
+        <button type="button" class="regex-try-btn" data-pattern="cat" data-flags="i" data-input="The cat sat on the mat.">
+            <strong>Find a word</strong>
+            <span>Match <code>cat</code> anywhere (ignore case)</span>
+        </button>
+        <button type="button" class="regex-try-btn" data-pattern="^\d{4}-\d{2}-\d{2}$" data-flags="" data-input="2026-03-14">
+            <strong>Check a date</strong>
+            <span>Only accept <code>YYYY-MM-DD</code></span>
+        </button>
+        <button type="button" class="regex-try-btn" data-pattern="\b\d{3}-\d{4}\b" data-flags="g" data-input="Call 555-0199 or 555-0100 today.">
+            <strong>Find phone pieces</strong>
+            <span>Find every <code>555-0199</code> style number</span>
+        </button>
+        <button type="button" class="regex-try-btn" data-pattern="^([A-Za-z]+) (\d+)$" data-flags="" data-input="Room 42">
+            <strong>Capture parts</strong>
+            <span>Split <code>Room 42</code> into word + number</span>
+        </button>
+    </div>
 </div>
+
 <div class="regex-readme-block">
-    <div class="regex-readme-heading">How repetition works</div>
-    <p><code>*</code> zero or more times</p>
-    <p><code>+</code> one or more times</p>
-    <p><code>?</code> zero or one time</p>
-    <p><code>{3}</code> exactly 3 times</p>
-    <p><code>{2,5}</code> between 2 and 5 times</p>
+    <div class="regex-readme-heading">Build a pattern in 4 steps</div>
+    <p>Goal: match dates like <code>2026-03-14</code>.</p>
+    <ol class="regex-guide-steps">
+        <li>Write the shape with placeholders: <code>0000-00-00</code></li>
+        <li>Swap each digit for <code>\d</code>: <code>\d\d\d\d-\d\d-\d\d</code></li>
+        <li>Shorten repeats with counts: <code>\d{4}-\d{2}-\d{2}</code></li>
+        <li>Lock the whole string with <code>^</code> and <code>$</code>: <code>^\d{4}-\d{2}-\d{2}$</code></li>
+    </ol>
+    <p class="regex-guide-tip"><strong>Tip:</strong> Start tiny. Get one piece working, then add the next rule.</p>
 </div>
+
 <div class="regex-readme-block">
-    <div class="regex-readme-heading">Important symbols</div>
-    <p><code>^</code> start of the string</p>
-    <p><code>$</code> end of the string</p>
-    <p><code>(...)</code> capture a part of the match</p>
-    <p><code>(?:...)</code> group without capturing</p>
-    <p><code>|</code> OR, for example <code>cat|dog</code></p>
+    <div class="regex-readme-heading">Cheat sheet</div>
+    <div class="regex-cheatsheet" role="table" aria-label="Regex cheat sheet">
+        <div class="regex-cheatsheet-row regex-cheatsheet-head" role="row">
+            <span role="columnheader">Write this</span>
+            <span role="columnheader">It means</span>
+        </div>
+        <div class="regex-cheatsheet-row" role="row"><code>\d</code><span>Any digit <code>0-9</code></span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>\w</code><span>Letter, digit, or <code>_</code></span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>\s</code><span>Space, tab, or newline</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>.</code><span>Any single character</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>[abc]</code><span>One of <code>a</code>, <code>b</code>, or <code>c</code></span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>[a-z]</code><span>One lowercase letter</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>[^0-9]</code><span>Anything that is <em>not</em> a digit</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>*</code><span>Zero or more of the thing before</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>+</code><span>One or more of the thing before</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>?</code><span>Optional (zero or one)</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>{3}</code><span>Exactly 3 times</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>{2,5}</code><span>From 2 to 5 times</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>^</code><span>Start of the text</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>$</code><span>End of the text</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>(...)</code><span>Capture this part for later</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>a|b</code><span>Match <code>a</code> <em>or</em> <code>b</code></span></div>
+    </div>
 </div>
+
 <div class="regex-readme-block">
-    <div class="regex-readme-heading">Easy examples</div>
-    <p><strong>4 digits only:</strong> <code>^\d{4}$</code></p>
-    <p><strong>Date:</strong> <code>^\d{4}-\d{2}-\d{2}$</code></p>
-    <p><strong>Email:</strong> <code>^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$</code></p>
-    <p><strong>Starts with "cat":</strong> <code>^cat</code></p>
-    <p><strong>Contains only lowercase letters:</strong> <code>^[a-z]+$</code></p>
+    <div class="regex-readme-heading">Flags (optional)</div>
+    <p>Put these letters in the <strong>Flags</strong> box:</p>
+    <div class="regex-cheatsheet" role="table" aria-label="Regex flags">
+        <div class="regex-cheatsheet-row" role="row"><code>i</code><span>Ignore uppercase vs lowercase</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>g</code><span>Find <em>all</em> matches, not just the first</span></div>
+        <div class="regex-cheatsheet-row" role="row"><code>m</code><span>Treat each line as its own start/end (<code>^</code> / <code>$</code>)</span></div>
+    </div>
+    <p class="regex-guide-note">Example: pattern <code>error</code> with flag <code>gi</code> finds every <code>error</code> / <code>Error</code> / <code>ERROR</code>.</p>
 </div>
+
 <div class="regex-readme-block">
-    <div class="regex-readme-heading">Flags</div>
-    <p><code>i</code> ignore uppercase vs lowercase</p>
-    <p><code>g</code> find all matches, not just the first one</p>
-    <p><code>m</code> let <code>^</code> and <code>$</code> work line by line</p>
+    <div class="regex-readme-heading">Common beginner mistakes</div>
+    <ul class="regex-guide-list">
+        <li><strong>Forgot <code>^</code> and <code>$</code></strong> — without them, the pattern can match in the middle of the text.</li>
+        <li><strong>Special characters need escaping</strong> — to match a real dot, write <code>\.</code> not <code>.</code></li>
+        <li><strong>Spaces count</strong> — a space in the pattern must also appear in the text.</li>
+        <li><strong>Start simple</strong> — if nothing matches, delete half the pattern and test again.</li>
+    </ul>
 </div>
-<p><strong>Beginner tip:</strong> If your regex feels confusing, build the smallest piece that works first, test it, and only then add more rules.</p>
