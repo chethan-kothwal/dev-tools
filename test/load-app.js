@@ -150,7 +150,8 @@ function loadApp() {
       getComputedStyle: () => ({ lineHeight: '21' })
     },
     document: doc,
-    jsyaml: yaml
+    jsyaml: yaml,
+    DevToolsAutoFix: require(path.resolve(__dirname, '..', 'auto-fix.js'))
   };
 
   vm.createContext(context);
