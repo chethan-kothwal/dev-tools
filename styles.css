@@ -1,7 +1,7 @@
 :root {
     color-scheme: light;
-    --font-sans: "Manrope", "Segoe UI", sans-serif;
-    --font-mono: "IBM Plex Mono", "SF Mono", "Cascadia Code", Consolas, monospace;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
     --bg-canvas: #e8ecef;
     --bg-main: #f4f6f8;
@@ -34,10 +34,18 @@
     --mesh-a: rgba(15, 118, 110, 0.12);
     --mesh-b: rgba(14, 116, 144, 0.1);
     --mesh-c: rgba(100, 116, 139, 0.08);
-    --radius-sm: 2px;
-    --radius-md: 3px;
-    --radius-lg: 4px;
-    --radius-xl: 4px;
+    --grid-dot: rgba(15, 23, 42, 0.07);
+    --syn-key: #0550ae;
+    --syn-string: #0a7d4f;
+    --syn-number: #b35900;
+    --syn-bool: #8250df;
+    --syn-null: #cf222e;
+    --syn-punct: #6e7781;
+    --syn-comment: #8c959f;
+    --radius-sm: 5px;
+    --radius-md: 7px;
+    --radius-lg: 10px;
+    --radius-xl: 14px;
     --header-h: 44px;
 }
 
@@ -74,6 +82,14 @@
     --mesh-a: rgba(45, 212, 191, 0.1);
     --mesh-b: rgba(56, 189, 248, 0.08);
     --mesh-c: rgba(148, 163, 184, 0.05);
+    --grid-dot: rgba(226, 232, 240, 0.05);
+    --syn-key: #7cc4ff;
+    --syn-string: #7ee2b8;
+    --syn-number: #ffb86b;
+    --syn-bool: #c4a7ff;
+    --syn-null: #ff8a8a;
+    --syn-punct: #7d8a99;
+    --syn-comment: #5f6b78;
 }
 
 * {
@@ -88,12 +104,7 @@ html {
 
 body {
     font-family: var(--font-sans);
-    background:
-        radial-gradient(900px 520px at 88% -10%, var(--mesh-a), transparent 55%),
-        radial-gradient(700px 480px at -8% 110%, var(--mesh-b), transparent 50%),
-        radial-gradient(600px 400px at 50% 40%, var(--mesh-c), transparent 60%),
-        linear-gradient(165deg, var(--bg-main) 0%, var(--bg-canvas) 100%);
-    background-attachment: fixed;
+    background: var(--bg-canvas);
     color: var(--text-main);
     min-height: 100vh;
     min-height: 100dvh;
@@ -105,7 +116,24 @@ body {
     overflow: hidden;
     position: relative;
     -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(900px 520px at 88% -10%, var(--mesh-a), transparent 55%),
+        radial-gradient(700px 480px at -8% 110%, var(--mesh-b), transparent 50%),
+        radial-gradient(var(--grid-dot) 1px, transparent 1px) 0 0 / 18px 18px,
+        linear-gradient(165deg, var(--bg-main) 0%, var(--bg-canvas) 100%);
+}
+
+::selection {
+    background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .sr-only {
@@ -135,7 +163,7 @@ header {
     backdrop-filter: blur(18px) saturate(1.2);
     position: relative;
     z-index: 2;
-    animation: riseIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: riseIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .brand {
@@ -247,8 +275,7 @@ h1 {
 .cron-example-chip:focus-visible,
 .utility-control select:focus-visible,
 .regex-control input:focus-visible,
-.cron-expression-input:focus-visible,
-textarea:focus-visible {
+.cron-expression-input:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
@@ -424,12 +451,17 @@ body.sidebar-open .sidebar-backdrop {
     overflow: hidden;
     box-shadow: var(--shadow-soft);
     min-width: 200px;
-    backdrop-filter: blur(16px) saturate(1.1);
-    animation: riseIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: riseIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-#leftPanel { animation-delay: 0.04s; }
-#rightPanel { animation-delay: 0.1s; }
+.panel:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    box-shadow: var(--shadow-soft), 0 0 0 3px var(--accent-soft);
+}
+
+#leftPanel { animation-delay: 0.02s; }
+#rightPanel { animation-delay: 0.06s; }
 
 .resizer {
     width: 6px;
@@ -468,11 +500,23 @@ body.sidebar-open .sidebar-backdrop {
 }
 
 .panel-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     font-size: 11px;
     font-weight: 750;
     color: var(--text-faint);
     text-transform: uppercase;
     letter-spacing: 0.1em;
+}
+
+.panel-title::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .btn-group {
@@ -515,6 +559,12 @@ body.sidebar-open .sidebar-backdrop {
 .btn-primary:hover {
     background: var(--accent-hover);
     transform: translateY(-1px);
+}
+
+.btn:active,
+.cron-parse-btn:active,
+.tool-choice:active {
+    transform: translateY(0) scale(0.98);
 }
 
 .btn-secondary:hover {
@@ -648,7 +698,7 @@ body.sidebar-open .sidebar-backdrop {
 .line-numbers {
     background: var(--gutter-bg);
     color: var(--gutter-text);
-    padding: 10px 4px;
+    padding: 8px 6px 8px 4px;
     text-align: right;
     font-family: var(--font-mono);
     font-size: 12.5px;
@@ -656,6 +706,8 @@ body.sidebar-open .sidebar-backdrop {
     user-select: none;
     min-width: 34px;
     border-right: 1px solid var(--border);
+    overflow: hidden;
+    flex: 0 0 auto;
 }
 
 .line-number {
@@ -682,6 +734,15 @@ textarea {
     line-height: 1.55;
     resize: none;
     outline: none;
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow: auto;
+    tab-size: 4;
+    caret-color: var(--accent);
+}
+
+textarea::placeholder {
+    color: var(--text-faint);
 }
 
 .panel-has-input-error .editor-wrapper {
@@ -835,7 +896,6 @@ textarea {
     border-radius: var(--radius-lg);
     padding: 12px;
     box-shadow: var(--shadow-soft);
-    backdrop-filter: blur(14px);
 }
 
 .cron-label {
@@ -1283,7 +1343,11 @@ textarea {
 }
 
 .tool-picker-title {
-    font-size: 1.65rem;
+    font-size: 1.75rem;
+    background: linear-gradient(120deg, var(--text-main) 30%, var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
     font-weight: 750;
     letter-spacing: -0.04em;
     margin-bottom: 8px;
@@ -1323,8 +1387,31 @@ textarea {
     background: color-mix(in srgb, var(--accent-soft) 55%, var(--bg-elevated));
 }
 
+.tool-choice {
+    position: relative;
+}
+
+.tool-choice::after {
+    content: '→';
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    color: var(--accent);
+    font-weight: 700;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.tool-choice:hover::after,
+.tool-choice:focus-visible::after {
+    opacity: 1;
+    transform: translateX(0);
+}
+
 .tool-choice strong {
     display: block;
+    padding-right: 20px;
     margin-bottom: 6px;
     font-size: 0.95rem;
     letter-spacing: -0.02em;
@@ -1337,35 +1424,19 @@ textarea {
 }
 
 /* —— Syntax —— */
+.json-key,
+.yaml-key { color: var(--syn-key); }
 .json-string,
-.json-number,
-.json-boolean,
-.json-null { color: #0f766e; }
-.json-key { color: #0369a1; }
-.json-bracket { color: #64748b; }
-
-.yaml-key { color: #0369a1; }
-.yaml-value,
 .yaml-string,
-.yaml-number,
-.yaml-boolean,
-.yaml-null { color: #0f766e; }
-.yaml-comment { color: #64748b; }
-
-[data-theme="dark"] .json-string,
-[data-theme="dark"] .json-number,
-[data-theme="dark"] .json-boolean,
-[data-theme="dark"] .json-null { color: #5eead4; }
-[data-theme="dark"] .json-key { color: #7dd3fc; }
-[data-theme="dark"] .json-bracket { color: #94a3b8; }
-
-[data-theme="dark"] .yaml-key { color: #7dd3fc; }
-[data-theme="dark"] .yaml-value,
-[data-theme="dark"] .yaml-string,
-[data-theme="dark"] .yaml-number,
-[data-theme="dark"] .yaml-boolean,
-[data-theme="dark"] .yaml-null { color: #5eead4; }
-[data-theme="dark"] .yaml-comment { color: #64748b; }
+.yaml-value { color: var(--syn-string); }
+.json-number,
+.yaml-number { color: var(--syn-number); }
+.json-boolean,
+.yaml-boolean { color: var(--syn-bool); }
+.json-null,
+.yaml-null { color: var(--syn-null); font-style: italic; }
+.json-bracket { color: var(--syn-punct); }
+.yaml-comment { color: var(--syn-comment); font-style: italic; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -459,15 +459,20 @@ function syncScroll() {
     inputLineNumbers.scrollTop = inputJson.scrollTop;
 }
 
+// Single pass over the line: strings (keys when followed by ':'), numbers, literals, brackets.
+const JSON_TOKEN_RE = /("(?:[^"\\]|\\.)*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false)\b|\b(null)\b|([{}\[\]])/g;
 function highlightJson(text) {
-    let json = escapeHtml(text);
-    json = json.replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:');
-    json = json.replace(/: "([^"]*)"/g, ': <span class="json-string">"$1"</span>');
-    json = json.replace(/: (\d+\.?\d*)/g, ': <span class="json-number">$1</span>');
-    json = json.replace(/: (true|false)/g, ': <span class="json-boolean">$1</span>');
-    json = json.replace(/: (null)/g, ': <span class="json-null">$1</span>');
-    json = json.replace(/([{}\[\]])/g, '<span class="json-bracket">$1</span>');
-    return json;
+    return escapeHtml(text).replace(JSON_TOKEN_RE, (match, str, colon, num, bool, nul, bracket) => {
+        if (str) {
+            return colon
+                ? `<span class="json-key">${str}</span>${colon}`
+                : `<span class="json-string">${str}</span>`;
+        }
+        if (num) return `<span class="json-number">${num}</span>`;
+        if (bool) return `<span class="json-boolean">${bool}</span>`;
+        if (nul) return `<span class="json-null">${nul}</span>`;
+        return `<span class="json-bracket">${bracket}</span>`;
+    });
 }
 
 function highlightYamlValue(valueText) {

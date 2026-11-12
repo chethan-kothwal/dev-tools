@@ -9,11 +9,17 @@
     <meta name="color-scheme" content="light dark">
     <title>Dev Tools</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@500;600;700;800&display=swap" as="style">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@500;600;700;800&display=swap">
-    <link rel="preload" href="styles.css" as="style">
+    <script>
+        // Apply the saved/system theme before first paint so dark-mode users never see a light flash.
+        (function () {
+            var t;
+            try { t = localStorage.getItem('selected_ui_theme'); } catch (e) {}
+            if (t !== 'dark' && t !== 'light') {
+                t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -213,7 +219,7 @@
                         </label>
                     </div>
                     <div class="editor-wrapper">
-                        <div class="line-numbers" id="inputLineNumbers">1</div>
+                        <div class="line-numbers" id="inputLineNumbers" aria-hidden="true"><span class="line-number">1</span></div>
                         <textarea id="inputJson" placeholder="Paste your data here..." spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-labelledby="inputPanelTitle"></textarea>
                     </div>
                     <div class="regex-match-panel" id="regexMatchPanel">
