@@ -823,10 +823,6 @@ function setSidebarOpen(isOpen, persist = true) {
     }
 }
 
-function openSidebar(persist = true) {
-    setSidebarOpen(true, persist);
-}
-
 function closeSidebar(persist = true) {
     setSidebarOpen(false, persist);
 }
@@ -1418,20 +1414,6 @@ function parseCronField(field, min, max, isDow = false) {
     }
 
     return values;
-}
-
-function cronMatches(schedule, date) {
-    const minute = date.getMinutes();
-    const hour = date.getHours();
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    const dow = date.getDay();
-
-    return schedule.minute.has(minute)
-        && schedule.hour.has(hour)
-        && schedule.dayOfMonth.has(day)
-        && schedule.month.has(month)
-        && schedule.dayOfWeek.has(dow);
 }
 
 function getNextCronRuns(schedule, fromDate, count) {
@@ -2235,7 +2217,6 @@ if (typeof module !== 'undefined' && module.exports) {
         decodeJwtToken,
         parseCronField,
         parseCronExpression,
-        cronMatches,
         getNextCronRuns,
         buildTimestampConversions,
         lineColumnToIndex,

@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY app.js styles.css index.html regex-readme.html ./
+COPY app.js auto-fix.js styles.css index.html regex-readme.html favicon.svg ./
 COPY scripts/ scripts/
 RUN npm run build
 

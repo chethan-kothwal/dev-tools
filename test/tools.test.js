@@ -43,13 +43,6 @@ test('JSON: fixJsonControlCharsInStrings escapes hard newlines in strings', () =
   assert.equal(fixed, '{"a":"line1\\nline2"}');
 });
 
-test('JSON: runJsonRepairPasses repairs common malformed json patterns', () => {
-  const broken = "{name:'Jane', age: 30, active: true,}";
-  const repaired = api.runJsonRepairPasses(broken);
-  const parsed = JSON.parse(repaired);
-  assert.deepEqual(parsed, { name: 'Jane', age: 30, active: true });
-});
-
 test('JSON: fixJsonStep can move malformed input toward valid JSON', () => {
   const broken = '{"a":1 "b":2}';
   const result = api.fixJsonStep(broken, 'Unexpected token " in JSON at position 7');
@@ -220,21 +213,6 @@ test('Cron: parseCronExpression rejects invalid field count', () => {
   }
 });
 
-test('Cron: parseCronField supports wildcard and step', () => {
-  const set = api.parseCronField('*/20', 0, 59);
-  assert.deepEqual([...set], [0, 20, 40]);
-});
-
-test('Cron: parseCronField supports ranges and csv', () => {
-  const set = api.parseCronField('1-3,8,10-12', 0, 59);
-  assert.deepEqual([...set], [1, 2, 3, 8, 10, 11, 12]);
-});
-
-test('Cron: parseCronField maps day-of-week 7 to 0', () => {
-  const set = api.parseCronField('7', 0, 6, true);
-  assert.deepEqual([...set], [0]);
-});
-
 test('Cron: parseCronField rejects invalid values', () => {
   const invalids = [
     ['*/0', /Invalid step/],
@@ -247,12 +225,6 @@ test('Cron: parseCronField rejects invalid values', () => {
   for (const [field, pattern] of invalids) {
     assert.throws(() => api.parseCronField(field, 0, 59), pattern);
   }
-});
-
-test('Cron: cronMatches validates date against schedule', () => {
-  const schedule = api.parseCronExpression('30 14 * * 1');
-  assert.equal(api.cronMatches(schedule, new Date('2026-03-09T14:30:00')), true);
-  assert.equal(api.cronMatches(schedule, new Date('2026-03-09T14:31:00')), false);
 });
 
 test('Cron: getNextCronRuns returns requested count in ascending order', () => {
@@ -345,7 +317,6 @@ test('Line/Column helper: lineColumnToIndex maps correctly', () => {
   assert.equal(api.lineColumnToIndex(text, 3, 4), 11);
 });
 
-// Large table-driven set for cron field behavior
 const cronFieldCases = [
   ['*', [0, 1, 2, 3, 4, 5, 6]],
   ['0', [0]],
@@ -375,7 +346,8 @@ const repairCases = [
   ["{flag: true, num: 2}", { flag: true, num: 2 }],
   ["{items:[one,two,three]}", { items: ['one', 'two', 'three'] }],
   ["{x:'y',z:null}", { x: 'y', z: null }],
-  ["{nested:{k:v}}", { nested: { k: 'v' } }]
+  ["{nested:{k:v}}", { nested: { k: 'v' } }],
+  ["{name:'Jane', age: 30, active: true,}", { name: 'Jane', age: 30, active: true }]
 ];
 
 test('JSON: table-driven repair pass coverage', () => {

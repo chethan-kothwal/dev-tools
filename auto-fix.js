@@ -750,13 +750,7 @@ function fixUnquotedValues(json) {
         runJsonRepairPasses: runJsonRepairPasses,
         parseLooseJsonFallback: parseLooseJsonFallback,
         fixJsonStep: fixJsonStep,
-        fixTrailingCommas: fixTrailingCommas,
-        fixMissingCommas: fixMissingCommas,
-        fixInlineValueBeforeNextKey: fixInlineValueBeforeNextKey,
-        fixUnquotedKeys: fixUnquotedKeys,
-        fixSingleQuotes: fixSingleQuotes,
         fixJavascriptComments: fixJavascriptComments,
-        fixUnquotedValues: fixUnquotedValues,
         parseLooseYamlToObject: parseLooseYamlToObject,
         fixYamlTabs: fixYamlTabs,
         fixYamlListSpacing: fixYamlListSpacing,
@@ -765,9 +759,6 @@ function fixUnquotedValues(json) {
         fixYamlTrailingCommas: fixYamlTrailingCommas,
         fixYamlUnsafeValues: fixYamlUnsafeValues,
         fixYamlIndentation: fixYamlIndentation,
-        fixYamlIndentByError: fixYamlIndentByError,
-        fixSmartQuotes: fixSmartQuotes,
-        isJsonPrimitiveLiteral: isJsonPrimitiveLiteral,
-        formatLooseJsonScalar: formatLooseJsonScalar
+        fixYamlIndentByError: fixYamlIndentByError
     };
 });
