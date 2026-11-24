@@ -74,9 +74,15 @@ let regexPattern = '';
 let regexFlags = '';
 let inputLineCount = 1;
 let renderedErrorLine = null;
+let isErrorBannerVisible = false;
+let hasInputErrorClass = false;
+let lastRenderedOutputText = '';
 let isResizing = false;
 let pendingResizeFrame = 0;
 let pendingResizeClientX = null;
+let dragContainerLeft = 0;
+let dragContainerWidth = 0;
+let dragResizerWidth = 0;
 let pendingRegexStatusFrame = 0;
 let copyFeedbackTimeout = 0;
 let renderedOutputSignature = '';
@@ -348,7 +354,7 @@ const TOOL_CONFIG = {
 
 if (inputJson) {
     inputJson.addEventListener('input', handleInputChange);
-    inputJson.addEventListener('scroll', syncScroll);
+    inputJson.addEventListener('scroll', syncScroll, { passive: true });
 }
 if (regexPatternInput) {
     regexPatternInput.addEventListener('input', handleRegexConfigChange);
@@ -395,22 +401,33 @@ function scheduleLineNumberUpdate() {
     });
 }
 
+function setErrorBannerVisible(visible) {
+    const next = Boolean(visible);
+    if (isErrorBannerVisible === next) return;
+    isErrorBannerVisible = next;
+    errorMessage.classList.toggle('show', next);
+}
+
 function handleInputChange() {
     toolInputCache[currentTool] = inputJson.value;
     scheduleLineNumberUpdate();
     if (currentTool === 'regex') {
         scheduleRegexStatusRender();
     }
-    clearInputErrorMarker();
-    errorMessage.classList.remove('show');
+    if (hasInputErrorClass || inputErrorState !== null) {
+        clearInputErrorMarker();
+    }
+    if (isErrorBannerVisible) {
+        setErrorBannerVisible(false);
+    }
 }
 
 function handleCronExpressionChange() {
     const value = cronExpressionInput ? cronExpressionInput.value : '';
     toolInputCache.cron = value;
     updateCronFieldChips(value);
-    if (currentTool === 'cron') {
-        errorMessage.classList.remove('show');
+    if (currentTool === 'cron' && isErrorBannerVisible) {
+        setErrorBannerVisible(false);
     }
 }
 
@@ -426,26 +443,37 @@ function applyCronExample(expression) {
 function updateLineNumbers() {
     const lines = inputLineCount;
     const errorLine = inputErrorState ? inputErrorState.line : null;
-    if (renderedErrorLine === errorLine && inputLineNumbers.childElementCount === lines) {
+    const existingCount = inputLineNumbers.childElementCount;
+    if (renderedErrorLine === errorLine && existingCount === lines) {
         return;
     }
 
     const children = inputLineNumbers.children;
-    for (let i = 0; i < lines; i++) {
-        let span = children[i];
-        if (!span) {
-            span = document.createElement('span');
+    if (renderedErrorLine && renderedErrorLine <= existingCount) {
+        children[renderedErrorLine - 1]?.classList.remove('line-number-error');
+    }
+
+    if (lines > existingCount) {
+        const frag = typeof document.createDocumentFragment === 'function'
+            ? document.createDocumentFragment()
+            : inputLineNumbers;
+        for (let i = existingCount; i < lines; i++) {
+            const span = document.createElement('span');
             span.className = 'line-number';
-            inputLineNumbers.appendChild(span);
+            span.textContent = String(i + 1);
+            frag.appendChild(span);
         }
-        const isError = inputErrorState && inputErrorState.line === i + 1;
-        span.classList.toggle('line-number-error', isError);
-        if (span.textContent !== String(i + 1)) {
-            span.textContent = i + 1;
+        if (frag !== inputLineNumbers) {
+            inputLineNumbers.appendChild(frag);
+        }
+    } else if (lines < existingCount) {
+        while (inputLineNumbers.childElementCount > lines) {
+            inputLineNumbers.lastChild.remove();
         }
     }
-    while (inputLineNumbers.childElementCount > lines) {
-        inputLineNumbers.lastChild.remove();
+
+    if (errorLine && errorLine <= lines) {
+        children[errorLine - 1]?.classList.add('line-number-error');
     }
     renderedErrorLine = errorLine;
 }
@@ -554,6 +582,7 @@ function setStoredValue(key, value) {
 function clearOutputDisplay() {
     if (!outputContent) return;
     outputContent.innerHTML = '';
+    lastRenderedOutputText = '';
     renderedOutputSignature = `${currentTool}\u0000`;
 }
 
@@ -676,7 +705,7 @@ function restoreToolError(tool) {
     const cached = toolErrorCache[tool] || { show: false, text: '', location: '' };
     errorText.textContent = cached.text || '';
     errorLocation.textContent = cached.location || '';
-    errorMessage.classList.toggle('show', Boolean(cached.show));
+    setErrorBannerVisible(Boolean(cached.show));
 }
 
 function setTool(tool, persist = true) {
@@ -761,7 +790,7 @@ function applyTheme(theme, persist = true) {
     const themeColorMeta = document.querySelector('meta[name="theme-color"]:not([media])')
         || document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {
-        themeColorMeta.setAttribute('content', currentTheme === 'dark' ? '#07090c' : '#e8ecef');
+        themeColorMeta.setAttribute('content', currentTheme === 'dark' ? '#111318' : '#f0f4f9');
     }
 
     if (persist) {
@@ -869,7 +898,7 @@ function formatJson() {
         const parsed = JSON.parse(input);
         const formatted = JSON.stringify(parsed, null, 2);
         displayOutput(formatted);
-        errorMessage.classList.remove('show');
+        setErrorBannerVisible(false);
     } catch (e) {
         const errorInfo = parseJsonError(e.message, input);
         showError(errorInfo.message, errorInfo.line, errorInfo.column);
@@ -892,7 +921,7 @@ function formatYaml() {
         const parsed = jsyaml.load(input);
         const formatted = jsyaml.dump(parsed, { indent: 2, lineWidth: -1, noRefs: true });
         displayOutput(formatted.trimEnd());
-        errorMessage.classList.remove('show');
+        setErrorBannerVisible(false);
     } catch (e) {
         const mark = e && e.mark ? e.mark : { line: 0, column: 0 };
         showError(e.reason || e.message || 'Invalid YAML', mark.line + 1, mark.column + 1);
@@ -909,7 +938,7 @@ function decodeJwt() {
     try {
         const output = decodeJwtToken(input);
         displayOutput(JSON.stringify(output, null, 2));
-        errorMessage.classList.remove('show');
+        setErrorBannerVisible(false);
     } catch (e) {
         showSimpleError('Could not decode JWT: ' + e.message);
     }
@@ -967,7 +996,7 @@ function analyzeCron() {
         if (currentTool === 'cron') {
             toolInputCache.cron = input;
             renderCronResults(input, runs);
-            errorMessage.classList.remove('show');
+            setErrorBannerVisible(false);
             return;
         }
         const lines = [
@@ -983,18 +1012,32 @@ function analyzeCron() {
         });
 
         displayOutput(lines.join('\n'));
-        errorMessage.classList.remove('show');
+        setErrorBannerVisible(false);
     } catch (e) {
         showSimpleError('Invalid cron expression: ' + e.message);
     }
 }
 
+const CRON_FIELD_LABELS = ['minute', 'hour', 'day', 'month', 'weekday'];
+
 function updateCronFieldChips(expression) {
     if (!cronFieldChips) return;
-    const labels = ['minute', 'hour', 'day', 'month', 'weekday'];
     const parts = String(expression || '').trim().split(/\s+/).filter(Boolean);
-    cronFieldChips.innerHTML = labels.map((label, index) => {
-        const value = parts[index] || label;
+    const children = cronFieldChips.children;
+    if (children && children.length === CRON_FIELD_LABELS.length) {
+        for (let i = 0; i < CRON_FIELD_LABELS.length; i++) {
+            const chip = children[i];
+            const part = parts[i];
+            const nextText = part || CRON_FIELD_LABELS[i];
+            if (chip.textContent !== nextText) {
+                chip.textContent = nextText;
+            }
+            chip.classList.toggle('is-filled', Boolean(part));
+        }
+        return;
+    }
+    cronFieldChips.innerHTML = CRON_FIELD_LABELS.map((label, index) => {
+        const value = escapeHtml(parts[index] || label);
         return `<span class="cron-field-chip ${parts[index] ? 'is-filled' : ''}">${value}</span>`;
     }).join('');
 }
@@ -1026,7 +1069,7 @@ function convertTimestamp() {
     try {
         const converted = buildTimestampConversions(input);
         displayOutput(JSON.stringify(converted, null, 2));
-        errorMessage.classList.remove('show');
+        setErrorBannerVisible(false);
     } catch (e) {
         showSimpleError('Could not convert timestamp: ' + e.message);
     }
@@ -1153,7 +1196,7 @@ function extractJwtPart(rawInput, mode) {
 }
 
 function clearToolError() {
-    errorMessage.classList.remove('show');
+    setErrorBannerVisible(false);
     toolErrorCache[currentTool] = { show: false, text: '', location: '' };
 }
 
@@ -1433,31 +1476,33 @@ function getNextCronRuns(schedule, fromDate, count) {
     const dowHas = new Uint8Array(7);
     for (const v of schedule.dayOfWeek) dowHas[v] = 1;
 
-    const maxIterations = 525600; // 1 year in minutes
-    let iterations = 0;
-    while (runs.length < count && iterations < maxIterations) {
-        const minute = cursor.getMinutes();
-        if (!minuteHas[minute]) {
-            cursor.setMinutes(minute + 1);
-            iterations++;
+    const endTime = fromDate.getTime() + 527040 * 60000; // up to 366 days
+    let guard = 0;
+    while (runs.length < count && cursor.getTime() <= endTime && guard < 600000) {
+        guard++;
+        const month = cursor.getMonth() + 1;
+        if (!monthHas[month]) {
+            cursor.setMonth(month, 1);
+            cursor.setHours(0, 0, 0, 0);
+            continue;
+        }
+        if (!domHas[cursor.getDate()] || !dowHas[cursor.getDay()]) {
+            cursor.setDate(cursor.getDate() + 1);
+            cursor.setHours(0, 0, 0, 0);
             continue;
         }
         const hour = cursor.getHours();
         if (!hourHas[hour]) {
-            cursor.setMinutes(0);
-            cursor.setHours(hour + 1);
-            iterations += (60 - minute);
+            cursor.setHours(hour + 1, 0, 0, 0);
             continue;
         }
-        if (
-            domHas[cursor.getDate()] &&
-            monthHas[cursor.getMonth() + 1] &&
-            dowHas[cursor.getDay()]
-        ) {
-            runs.push(new Date(cursor.getTime()));
+        const minute = cursor.getMinutes();
+        if (!minuteHas[minute]) {
+            cursor.setMinutes(minute + 1, 0, 0);
+            continue;
         }
-        cursor.setMinutes(minute + 1);
-        iterations++;
+        runs.push(new Date(cursor.getTime()));
+        cursor.setMinutes(minute + 1, 0, 0);
     }
     return runs;
 }
@@ -1568,9 +1613,8 @@ function buildRegexMatchResult(pattern, flags, input) {
         };
     }
 
-    const regex = new RegExp(safePattern, safeFlags);
-    const matcherFlags = regex.flags.includes('g') ? regex.flags : `${regex.flags}g`;
-    const matcher = new RegExp(regex.source, matcherFlags);
+    const matcherFlags = safeFlags.includes('g') ? safeFlags : `${safeFlags}g`;
+    const matcher = new RegExp(safePattern, matcherFlags);
 
     const matches = [];
     let isMatch = false;
@@ -1579,14 +1623,12 @@ function buildRegexMatchResult(pattern, flags, input) {
 
     while ((match = matcher.exec(safeInput)) !== null) {
         isMatch = true;
-        if (matches.length < maxMatches) {
-            matches.push({
-                match: match[0],
-                index: match.index ?? 0,
-                groups: match.slice(1)
-            });
-        }
-        if (!matcher.global) break;
+        matches.push({
+            match: match[0],
+            index: match.index ?? 0,
+            groups: match.slice(1)
+        });
+        if (matches.length >= maxMatches || !matcher.global) break;
         if (match.index === matcher.lastIndex) matcher.lastIndex++;
     }
 
@@ -1675,14 +1717,14 @@ function showSimpleError(message) {
     clearInputErrorMarker();
     errorText.textContent = message;
     errorLocation.textContent = '';
-    errorMessage.classList.add('show');
+    setErrorBannerVisible(true);
     toolErrorCache[currentTool] = { show: true, text: message, location: '' };
 }
 
 function showError(message, line, column, details = '') {
     errorText.textContent = message;
     errorLocation.textContent = `Line ${line}, Column ${column}`;
-    errorMessage.classList.add('show');
+    setErrorBannerVisible(true);
     toolErrorCache[currentTool] = { show: true, text: message, location: `Line ${line}, Column ${column}` };
     setInputErrorMarker(line, column, details);
 }
@@ -1693,7 +1735,10 @@ function setInputErrorMarker(line, column, details = '') {
         return;
     }
     inputErrorState = { line, column: Number.isInteger(column) ? column : 1 };
-    leftPanel?.classList.add('panel-has-input-error');
+    if (!hasInputErrorClass) {
+        hasInputErrorClass = true;
+        leftPanel?.classList.add('panel-has-input-error');
+    }
     updateLineNumbers();
     if (inputErrorInline) {
         const base = `Input error at line ${inputErrorState.line}, column ${inputErrorState.column}`;
@@ -1725,8 +1770,12 @@ function buildJsonErrorDetails(input, errorInfo) {
 }
 
 function clearInputErrorMarker() {
+    if (inputErrorState === null && !hasInputErrorClass) return;
     inputErrorState = null;
-    leftPanel?.classList.remove('panel-has-input-error');
+    if (hasInputErrorClass) {
+        hasInputErrorClass = false;
+        leftPanel?.classList.remove('panel-has-input-error');
+    }
     updateLineNumbers();
     if (inputErrorInline) {
         inputErrorInline.textContent = '';
@@ -1762,6 +1811,7 @@ function highlightInputErrorPosition(line, column) {
 function displayOutput(formatted) {
     const signature = `${currentTool}\u0000${formatted}`;
     if (renderedOutputSignature === signature) {
+        lastRenderedOutputText = formatted;
         toolOutputCache[currentTool] = formatted.length <= MAX_CACHED_OUTPUT_CHARS ? formatted : '';
         return;
     }
@@ -1770,21 +1820,15 @@ function displayOutput(formatted) {
     const isLarge = lines.length > MAX_HIGHLIGHT_OUTPUT_LINES || formatted.length > MAX_HIGHLIGHT_OUTPUT_CHARS;
 
     if (isLarge) {
-        outputContent.innerHTML = `<pre style="margin:0;padding:10px 12px 10px 42px;white-space:pre;word-break:normal;overflow-wrap:normal;font-family:inherit;line-height:inherit;tab-size:2;">${escapeHtml(formatted)}</pre>`;
-        renderedOutputSignature = signature;
-        toolOutputCache[currentTool] = formatted.length <= MAX_CACHED_OUTPUT_CHARS ? formatted : '';
-        return;
+        outputContent.innerHTML = `<pre class="output-large-pre">${escapeHtml(formatted)}</pre>`;
+    } else {
+        const parts = new Array(lines.length);
+        for (let i = 0; i < lines.length; i++) {
+            parts[i] = `<div class="output-line"><div class="output-line-numbers">${i + 1}</div><div class="output-content">${highlightLine(lines[i])}</div></div>`;
+        }
+        outputContent.innerHTML = parts.join('');
     }
-
-    const frag = document.createDocumentFragment();
-    for (let i = 0; i < lines.length; i++) {
-        const lineDiv = document.createElement('div');
-        lineDiv.className = 'output-line';
-        lineDiv.innerHTML = `<div class="output-line-numbers">${i + 1}</div><div class="output-content">${highlightLine(lines[i])}</div>`;
-        frag.appendChild(lineDiv);
-    }
-    outputContent.innerHTML = '';
-    outputContent.appendChild(frag);
+    lastRenderedOutputText = formatted;
     renderedOutputSignature = signature;
     toolOutputCache[currentTool] = formatted.length <= MAX_CACHED_OUTPUT_CHARS ? formatted : '';
 }
@@ -1800,7 +1844,7 @@ function clearAll() {
         if (cronRunList) {
             cronRunList.innerHTML = '<div class="cron-run-empty">Upcoming runs will appear here.</div>';
         }
-        errorMessage.classList.remove('show');
+        setErrorBannerVisible(false);
         return;
     }
     inputJson.value = '';
@@ -1823,7 +1867,7 @@ function clearAll() {
     clearInputErrorMarker();
     updateLineNumbers();
     clearOutputDisplay();
-    errorMessage.classList.remove('show');
+    setErrorBannerVisible(false);
 }
 
 function setCopyButtonState(label, statusMessage = '', isError = false) {
@@ -1876,7 +1920,7 @@ function fallbackCopyText(text) {
 }
 
 async function copyOutput() {
-    const text = toolOutputCache[currentTool] || outputContent.textContent;
+    const text = toolOutputCache[currentTool] || lastRenderedOutputText || outputContent.textContent;
     if (!text) {
         showCopyFeedback('Empty', 'There is no output to copy.', true);
         return;
@@ -1975,7 +2019,7 @@ function autoFixJson(fixers) {
         showError(`Auto-fix generated output. Original input issue: ${inputErrorInfo.message}`, inputErrorInfo.line, inputErrorInfo.column, details);
     } else {
         clearInputErrorMarker();
-        errorMessage.classList.remove('show');
+        setErrorBannerVisible(false);
     }
 }
 
@@ -2061,7 +2105,7 @@ function autoFixYaml(fixers) {
             showError(`Input error retained: ${inputErrorInfo.message}`, inputErrorInfo.line, inputErrorInfo.column);
         } else {
             clearInputErrorMarker();
-            errorMessage.classList.remove('show');
+            setErrorBannerVisible(false);
         }
     } catch (e) {
         try {
@@ -2072,7 +2116,7 @@ function autoFixYaml(fixers) {
                 showError(`Input error retained: ${inputErrorInfo.message}`, inputErrorInfo.line, inputErrorInfo.column);
             } else {
                 clearInputErrorMarker();
-                errorMessage.classList.remove('show');
+                setErrorBannerVisible(false);
             }
         } catch (fallbackError) {
             const mark = fallbackError && fallbackError.mark ? fallbackError.mark : (e && e.mark ? e.mark : { line: 0, column: 0 });
@@ -2105,9 +2149,30 @@ copyBtn?.addEventListener('click', copyOutput);
 cronExampleButtons.forEach((button) => {
     button.addEventListener('click', () => applyCronExample(button.getAttribute('data-expression') || ''));
 });
+// Preload lazy tool assets on hover/focus intent so clicks have zero network latency
+if (autoFixBtn) {
+    const warmAutoFix = () => loadAutoFixModule().catch(() => {});
+    autoFixBtn.addEventListener('pointerenter', warmAutoFix, { once: true, passive: true });
+    autoFixBtn.addEventListener('focus', warmAutoFix, { once: true });
+}
+if (yamlToolBtn) {
+    const warmYaml = () => loadYamlLibrary().catch(() => {});
+    yamlToolBtn.addEventListener('pointerenter', warmYaml, { once: true, passive: true });
+    yamlToolBtn.addEventListener('focus', warmYaml, { once: true });
+}
+if (regexToolBtn) {
+    const warmRegex = () => ensureRegexReadme().catch(() => {});
+    regexToolBtn.addEventListener('pointerenter', warmRegex, { once: true, passive: true });
+    regexToolBtn.addEventListener('focus', warmRegex, { once: true });
+}
 document.querySelectorAll('.tool-choice').forEach((el) => {
     const key = el.getAttribute('data-tool');
-    if (key) el.addEventListener('click', () => chooseTool(key));
+    if (key) {
+        el.addEventListener('click', () => chooseTool(key));
+        if (key === 'yaml' || key === 'regex') {
+            el.addEventListener('pointerenter', () => preloadToolAssets(key), { once: true, passive: true });
+        }
+    }
 });
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -2125,16 +2190,37 @@ initSidebar();
 initToolChoice();
 if (inputLineNumbers) updateLineNumbers();
 
+// Warm auto-fix bundle during idle time after first paint (browser only)
+if (typeof window !== 'undefined' && typeof document !== 'undefined' && document.head && !autoFixApi) {
+    const scheduleIdle = typeof window.requestIdleCallback === 'function'
+        ? (fn) => window.requestIdleCallback(fn, { timeout: 2000 })
+        : (fn) => setTimeout(fn, 1200);
+    scheduleIdle(() => {
+        if (currentTool === 'json' || currentTool === 'yaml') {
+            loadAutoFixModule().catch(() => {});
+        }
+    });
+}
+
+function captureResizerMetrics() {
+    if (!container || !resizer) return;
+    const containerRect = container.getBoundingClientRect();
+    dragContainerLeft = containerRect.left;
+    dragContainerWidth = containerRect.width;
+    dragResizerWidth = resizer.offsetWidth;
+}
+
 function applyResizerPosition(clientX) {
     if (!container || !resizer || !leftPanel || !rightPanel) return;
+    if (!dragContainerWidth) {
+        captureResizerMetrics();
+    }
+    if (!dragContainerWidth) return;
 
-    const containerRect = container.getBoundingClientRect();
-    const newLeftWidth = clientX - containerRect.left;
-    const containerWidth = containerRect.width;
-    const resizerWidth = resizer.offsetWidth;
-    const leftPercent = (newLeftWidth / containerWidth) * 100;
-    const rightPercent = 100 - leftPercent - (resizerWidth / containerWidth) * 100;
-    const minPercent = (200 / containerWidth) * 100;
+    const newLeftWidth = clientX - dragContainerLeft;
+    const leftPercent = (newLeftWidth / dragContainerWidth) * 100;
+    const rightPercent = 100 - leftPercent - (dragResizerWidth / dragContainerWidth) * 100;
+    const minPercent = (200 / dragContainerWidth) * 100;
 
     if (leftPercent > minPercent && rightPercent > minPercent) {
         leftPanel.style.flex = `0 0 ${leftPercent}%`;
@@ -2157,6 +2243,7 @@ function stopResizing() {
     if (!isResizing) return;
     isResizing = false;
     pendingResizeClientX = null;
+    dragContainerWidth = 0;
     if (pendingResizeFrame) {
         cancelUiFrame(pendingResizeFrame);
         pendingResizeFrame = 0;
@@ -2167,6 +2254,7 @@ function stopResizing() {
 
 if (resizer) resizer.addEventListener('mousedown', (e) => {
     isResizing = true;
+    captureResizerMetrics();
     resizer.classList.add('resizing');
     document.body.style.cursor = 'col-resize';
     e.preventDefault();
@@ -2175,15 +2263,16 @@ if (resizer) resizer.addEventListener('mousedown', (e) => {
 document.addEventListener('mousemove', (e) => {
     if (!isResizing) return;
     queueResize(e.clientX);
-});
+}, { passive: true });
 
 document.addEventListener('mouseup', () => {
     stopResizing();
-});
+}, { passive: true });
 
 // Touch support for mobile
 if (resizer) resizer.addEventListener('touchstart', (e) => {
     isResizing = true;
+    captureResizerMetrics();
     resizer.classList.add('resizing');
     e.preventDefault();
 });
@@ -2194,11 +2283,11 @@ document.addEventListener('touchmove', (e) => {
     const touch = e.touches[0];
     if (!touch) return;
     queueResize(touch.clientX);
-});
+}, { passive: true });
 
 document.addEventListener('touchend', () => {
     stopResizing();
-});
+}, { passive: true });
 
 if (typeof module !== 'undefined' && module.exports) {
     const autoFixExports = (typeof DevToolsAutoFix !== 'undefined' && DevToolsAutoFix)

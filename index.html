@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Format, validate, and inspect JSON, YAML, JWTs, cron expressions, timestamps, Base64, hex, and regex input in one fast browser tool.">
-    <meta name="theme-color" content="#e8ecef" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#07090c" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f0f4f9" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)">
     <meta name="color-scheme" content="light dark">
     <title>Dev Tools</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -23,14 +23,14 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header>
+    <header class="top-app-bar">
         <button class="tool-drawer-btn" id="sidebarToggleBtn" type="button" title="Open tools" aria-label="Open tools" aria-expanded="false" aria-controls="sidebar">
-            <svg class="icon-menu" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-            Tools
+            <svg class="icon-menu" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            <span>Tools</span>
         </button>
         <div class="brand">
             <div class="brand-mark" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M8 7l-4 5 4 5"/>
                     <path d="M16 7l4 5-4 5"/>
                     <path d="M13 5l-2 14"/>
@@ -43,7 +43,8 @@
         </div>
         <div class="header-actions">
             <button class="theme-btn" id="themeToggleBtn" type="button" aria-label="Toggle color theme">
-                <svg class="theme-icon theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z"/></svg>
+                <svg class="theme-icon theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z"/></svg>
+                <svg class="theme-icon theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
                 <span id="themeToggleLabel">Dark</span>
             </button>
         </div>
